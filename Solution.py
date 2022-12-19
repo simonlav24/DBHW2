@@ -14,18 +14,104 @@ from Business.Actor import Actor
 # ---------------------------------- CRUD API: ----------------------------------
 
 def createTables():
-    # TODO: implement
-    pass
+    conn = None
+    try:
+        conn = Connector.DBConnector()
+        conn.execute("BEGIN;"
+                     "CREATE TABLE Critic("
+                     "ID INTEGER PRIMARY KEY,"
+                     "Name TEXT NOT NULL,"
+                     ");"
+
+                     "CREATE TABLE Movie("
+                     "Name TEXT NOT NULL,"
+                     "Year INTEGER NOT NULL,"
+                     "PRIMARY KEY(Name, Year),"
+                     "Genre TEXT NOT NULL,"
+
+                     "CREATE TABLE Actor("
+                     "ID INTEGER PRIMARY KEY CHECK (ID > 0),"
+                     "Name TEXT NOT NULL,"
+                     "Age INTEGER NOT NULL CHECK (Age > 0),"
+                     "Height INTEGER NOT NULL CHECK (Height > 0 ),"
+                     ");"
+
+                     "CREATE TABLE Studio("
+                     "ID INTEGER PRIMARY KEY,"
+                     "Name TEXT NOT NULL,"
+                     ");"
+
+                     "COMMIT;"
+                     )
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+    except DatabaseException.NOT_NULL_VIOLATION as e:
+        print(e)
+    except DatabaseException.CHECK_VIOLATION as e:
+        print(e)
+    except DatabaseException.UNIQUE_VIOLATION as e:
+        print(e)
+    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
 
 
 def clearTables():
-    # TODO: implement
-    pass
+    conn = None
+    try:
+        conn = Connector.DBConnector()
+        conn.execute("BEGIN;"
+                     "DELETE FROM Critic;"
+                     "DELETE FROM Movie;"
+                     "DELETE FROM Actor;"
+                     "DELETE FROM Studio;"
+                     "COMMIT;"
+                     )
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+    except DatabaseException.NOT_NULL_VIOLATION as e:
+        print(e)
+    except DatabaseException.CHECK_VIOLATION as e:
+        print(e)
+    except DatabaseException.UNIQUE_VIOLATION as e:
+        print(e)
+    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+
 
 
 def dropTables():
-    # TODO: implement
-    pass
+    conn = None
+    try:
+        conn = Connector.DBConnector()
+        conn.execute("BEGIN;"
+                     "DROP TABLE IF EXISTS Critic CASCADE;"
+                     "DROP TABLE IF EXISTS Movie CASCADE;"
+                     "DROP TABLE IF EXISTS Actor CASCADE;"
+                     "DROP TABLE IF EXISTS Studio CASCADE;"
+                     "COMMIT;"
+                     )
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+    except DatabaseException.NOT_NULL_VIOLATION as e:
+        print(e)
+    except DatabaseException.CHECK_VIOLATION as e:
+        print(e)
+    except DatabaseException.UNIQUE_VIOLATION as e:
+        print(e)
+    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
 
 
 def addCritic(critic: Critic) -> ReturnValue:
