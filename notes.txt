@@ -1,0 +1,30 @@
+movies, studios, ratings ...
+
+admin can add movie, actor, studio ...
+
+no calculations on data using python
+
+no classes, only in the functions, basic functions ok
+
+only one sql query in each function
+
+Critic:
+	ID		 	Int 	unique		(non null)
+	Name 		String				(non null)
+	
+Movie:
+	Name		String	|unique								(non null)
+	Year		Int		|>=1895								(non null)
+	Genre		String	['drama', action, comedy, horror]	(non null)
+	
+Actor:
+	ID			Int		unique >0	(non null)
+	Name		String				(non null)
+	Age			Int		>0			(non null)
+	Height		Int		>0			(non null)
+	
+Studio:
+	ID			Int		unique		(non null)
+	Name		String				(non null)
+	
+	
