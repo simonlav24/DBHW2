@@ -17,44 +17,65 @@ def createTables():
     conn = None
     try:
         conn = Connector.DBConnector()
-        conn.execute("BEGIN;"
-                     "CREATE TABLE Critic("
-                     "ID INTEGER PRIMARY KEY,"
-                     "Name TEXT NOT NULL,"
-                     ");"
 
-                     "CREATE TABLE Movie("
-                     "Name TEXT NOT NULL,"
-                     "Year INTEGER NOT NULL,"
-                     "PRIMARY KEY(Name, Year),"
-                     "Genre TEXT NOT NULL,"
+        create_critic_table = """
+                     CREATE TABLE IF NOT EXISTS Critic(
+                     ID INTEGER PRIMARY KEY,
+                     Name TEXT NOT NULL
+                     );
+                     """
 
-                     "CREATE TABLE Actor("
-                     "ID INTEGER PRIMARY KEY CHECK (ID > 0),"
-                     "Name TEXT NOT NULL,"
-                     "Age INTEGER NOT NULL CHECK (Age > 0),"
-                     "Height INTEGER NOT NULL CHECK (Height > 0 ),"
-                     ");"
+        create_movie_table = """
+                        CREATE TABLE IF NOT EXISTS Movie(
+                        Name TEXT NOT NULL,
+                        Year INTEGER NOT NULL,
+                        PRIMARY KEY(Name, Year),
+                        Genre TEXT NOT NULL
+                        );
+                        """
+        
+        create_actor_table = """
+                        CREATE TABLE IF NOT EXISTS Actor(
+                        ID INTEGER PRIMARY KEY CHECK (ID > 0),
+                        Name TEXT NOT NULL,
+                        Age INTEGER NOT NULL CHECK (Age > 0),
+                        Height INTEGER NOT NULL CHECK (Height > 0 )
+                        );
+                        """
 
-                     "CREATE TABLE Studio("
-                     "ID INTEGER PRIMARY KEY,"
-                     "Name TEXT NOT NULL,"
-                     ");"
+        create_studio_table = """
+                        CREATE TABLE IF NOT EXISTS Studio(
+                        ID INTEGER PRIMARY KEY,
+                        Name TEXT NOT NULL
+                        );
+                        """
 
-                     "COMMIT;"
-                     )
+        # more...
+
+        conn.execute(create_critic_table)
+        conn.execute(create_movie_table)
+        conn.execute(create_actor_table)
+        conn.execute(create_studio_table)
+        conn.commit()
+
     except DatabaseException.ConnectionInvalid as e:
         print(e)
+        conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.CHECK_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         print(e)
+        conn.rollback()
     except Exception as e:
         print(e)
+        conn.rollback()
     finally:
         conn.close()
 
@@ -63,25 +84,31 @@ def clearTables():
     conn = None
     try:
         conn = Connector.DBConnector()
-        conn.execute("BEGIN;"
-                     "DELETE FROM Critic;"
+        conn.execute("DELETE FROM Critic;"
                      "DELETE FROM Movie;"
                      "DELETE FROM Actor;"
                      "DELETE FROM Studio;"
-                     "COMMIT;"
                      )
+        conn.commit()
+                    
     except DatabaseException.ConnectionInvalid as e:
         print(e)
+        conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.CHECK_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         print(e)
+        conn.rollback()
     except Exception as e:
         print(e)
+        conn.rollback()
     finally:
         conn.close()
 
@@ -100,24 +127,60 @@ def dropTables():
                      )
     except DatabaseException.ConnectionInvalid as e:
         print(e)
+        conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.CHECK_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
         print(e)
+        conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         print(e)
+        conn.rollback()
     except Exception as e:
         print(e)
+        conn.rollback()
     finally:
         conn.close()
 
 
 def addCritic(critic: Critic) -> ReturnValue:
-    # TODO: implement
-    pass
-
+    conn = None
+    try:
+        if critic.getCriticID() < 0:
+            return ReturnValue.BAD_PARAMS
+        if critic.getName() is None:
+            return ReturnValue.BAD_PARAMS
+        
+        conn = Connector.DBConnector()
+        query = "INSERT INTO Critic (ID, Name) VALUES ({critic_id}, {critic_name});"
+        query = query.format(critic_id=critic.getCriticID(), critic_name=critic.getName())
+        conn.execute(query)
+        conn.commit()
+        # todo: figure out order of except
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+        conn.rollback()
+    except DatabaseException.NOT_NULL_VIOLATION as e:
+        print(e)
+        conn.rollback()
+    except DatabaseException.CHECK_VIOLATION as e:
+        print(e)
+        conn.rollback()
+    except DatabaseException.UNIQUE_VIOLATION as e:
+        print(e)
+        conn.rollback()
+    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
+        print(e)
+        conn.rollback()
+    except Exception as e:
+        print(e)
+        conn.rollback()
+    finally:
+        conn.close()
 
 def deleteCritic(critic_id: int) -> ReturnValue:
     # TODO: implement
