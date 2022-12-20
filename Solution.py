@@ -10,6 +10,7 @@ from Business.Studio import Studio
 from Business.Critic import Critic
 from Business.Actor import Actor
 
+DEBUG = True
 
 # ---------------------------------- CRUD API: ----------------------------------
 
@@ -149,38 +150,40 @@ def dropTables():
 
 def addCritic(critic: Critic) -> ReturnValue:
     conn = None
+
+    critic_id = critic.getCriticID()
+    critic_id = critic_id if critic_id is not None else "NULL"
+    critic_name = critic.getName()
+    critic_name = critic_name if critic_name is not None else "NULL"
+
+    result = ReturnValue.OK
+
     try:
-        if critic.getCriticID() < 0:
-            return ReturnValue.BAD_PARAMS
-        if critic.getName() is None:
-            return ReturnValue.BAD_PARAMS
-        
         conn = Connector.DBConnector()
         query = "INSERT INTO Critic (ID, Name) VALUES ({critic_id}, {critic_name});"
-        query = query.format(critic_id=critic.getCriticID(), critic_name=critic.getName())
+        query = query.format(critic_id=critic_id, critic_name=critic_name)
         conn.execute(query)
         conn.commit()
         # todo: figure out order of except
     except DatabaseException.ConnectionInvalid as e:
         print(e)
-        conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
-        print(e)
-        conn.rollback()
+        result = ReturnValue.BAD_PARAMS
+        if DEBUG: print(e)
     except DatabaseException.CHECK_VIOLATION as e:
         print(e)
-        conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
         print(e)
-        conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         print(e)
-        conn.rollback()
     except Exception as e:
         print(e)
-        conn.rollback()
     finally:
+        if result is not ReturnValue.OK:
+            conn.rollback()
         conn.close()
+
+    return result
 
 def deleteCritic(critic_id: int) -> ReturnValue:
     # TODO: implement
