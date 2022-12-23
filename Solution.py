@@ -63,6 +63,26 @@ def createTables():
                         );
                         """
 
+        create_Roles_table = """
+                        CREATE TABLE IF NOT EXISTS Roles(
+                        MovieName TEXT NOT NULL,
+                        MovieYear INTEGER NOT NULL,
+                        ActorID INTEGER NOT NULL REFERENCES Actor(ID),
+                        Role TEXT NOT NULL,
+                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie(Name, Year)
+                        );
+                        """
+
+        create_Cast_table = """
+                        CREATE TABLE IF NOT EXISTS Casts(
+                        MovieName TEXT NOT NULL,
+                        MovieYear INTEGER NOT NULL,
+                        ActorID INTEGER NOT NULL REFERENCES Actor(ID),
+                        Salary INTEGER NOT NULL CHECK (Salary > 0),
+                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie(Name, Year)
+                        );
+                        """
+
         # more...
 
         # basic tables
@@ -104,7 +124,8 @@ def createTables():
             print(e)
         conn.rollback()
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def clearTables():
@@ -117,7 +138,7 @@ def clearTables():
                     "DELETE FROM Actor;"
                     "DELETE FROM Studio;"
                     "DELETE FROM Ratings;"
-                    "DELETE FROM Cast;"
+                    "DELETE FROM Casts;"
                      )
         conn.commit()
 
@@ -146,7 +167,8 @@ def clearTables():
             print(e)
         conn.rollback()
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def dropTables():
@@ -159,7 +181,7 @@ def dropTables():
                      "DROP TABLE IF EXISTS Actor CASCADE;"
                      "DROP TABLE IF EXISTS Studio CASCADE;"
                      "DROP TABLE IF EXISTS Ratings CASCADE;"
-                     "DROP TABLE IF EXISTS Cast CASCADE;"
+                     "DROP TABLE IF EXISTS Casts CASCADE;"
                      )
         conn.commit()
     except DatabaseException.ConnectionInvalid as e:
@@ -187,7 +209,8 @@ def dropTables():
             print(e)
         conn.rollback()
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def addCritic(critic: Critic) -> ReturnValue:
