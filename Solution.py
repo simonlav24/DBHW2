@@ -65,11 +65,18 @@ def createTables():
 
         # more...
 
+        # basic tables
         conn.execute(create_critic_table)
         conn.execute(create_movie_table)
         conn.execute(create_actor_table)
         conn.execute(create_studio_table)
+
+        # relations
         conn.execute(create_Ratings_table)
+        conn.execute(create_Roles_table)
+        conn.execute(create_Cast_table)
+
+        
         conn.commit()
 
     except DatabaseException.ConnectionInvalid as e:
@@ -104,10 +111,13 @@ def clearTables():
     conn = None
     try:
         conn = Connector.DBConnector()
-        conn.execute("DELETE FROM Critic;"
-                     "DELETE FROM Movie;"
-                     "DELETE FROM Actor;"
-                     "DELETE FROM Studio;"
+        conn.execute(
+                    "DELETE FROM Critic;"
+                    "DELETE FROM Movie;"
+                    "DELETE FROM Actor;"
+                    "DELETE FROM Studio;"
+                    "DELETE FROM Ratings;"
+                    "DELETE FROM Cast;"
                      )
         conn.commit()
 
@@ -143,14 +153,15 @@ def dropTables():
     conn = None
     try:
         conn = Connector.DBConnector()
-        conn.execute("BEGIN;"
+        conn.execute(
                      "DROP TABLE IF EXISTS Critic CASCADE;"
                      "DROP TABLE IF EXISTS Movie CASCADE;"
                      "DROP TABLE IF EXISTS Actor CASCADE;"
                      "DROP TABLE IF EXISTS Studio CASCADE;"
                      "DROP TABLE IF EXISTS Ratings CASCADE;"
-                     "COMMIT;"
+                     "DROP TABLE IF EXISTS Cast CASCADE;"
                      )
+        conn.commit()
     except DatabaseException.ConnectionInvalid as e:
         if DEBUG:
             print(e)
@@ -644,7 +655,7 @@ def criticDidntRateMovie(movieName: str, movieYear: int, criticID: int) -> Retur
 
 
 def actorPlayedInMovie(movieName: str, movieYear: int, actorID: int, salary: int, roles: List[str]) -> ReturnValue:
-    # TODO: implement
+    # first need to create roles in the roles table
     pass
 
 
@@ -665,13 +676,62 @@ def studioDidntProduceMovie(studioID: int, movieName: str, movieYear: int) -> Re
 
 # ---------------------------------- BASIC API: ----------------------------------
 def averageRating(movieName: str, movieYear: int) -> float:
-    # TODO: implement
-    pass
+    """ returns the average rating of a movie by all critics who rated it. 0 in case of division by zero or movie not found. or other errors
+    """
+    conn = None
+    result = 0.0
+    try:
+        conn = Connector.DBConnector()
+        query = "SELECT AVG(rating) FROM Ratings WHERE MovieName = {movieName} AND MovieYear = {movieYear};"
+        query = query.format(movieName=stringQouteMark(movieName),
+                             movieYear=movieYear)
+        rows_count, rows = conn.execute(query)
+        row = rows[0]['avg']
+        result = float(row)
+        if result is None:
+            result = 0.0
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
 
+    return result
 
 def averageActorRating(actorID: int) -> float:
-    # TODO: implement
-    pass
+    """  the average of average ratings of movies in which the actor played,
+         or 0 if the actor did not play in any movie.
+         if any movie has no ratings, it is counted as having average rating of 0.
+         In case the actor does not exist, or have not played in any movies with ratings, return 0. """
+    conn = None
+    result = 0.0
+    try:
+        conn = Connector.DBConnector()
+        
+
+        # todo
+        # select all movies that the actor played in
+        # select all ratings of the movies
+        # select the average of the ratings
+        # select the average of the averages
+
+        
+
+        query = query.format(actorID=actorID)
+        rows_count, rows = conn.execute(query)
+        row = rows[0]['avg']
+        result = float(row)
+        if result is None:
+            result = 0.0
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+
+    return result
 
 
 def bestPerformance(actor_id: int) -> Movie:
