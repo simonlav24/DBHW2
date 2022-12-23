@@ -54,4 +54,3 @@ if __name__ == '__main__':
     Solution.createTables()
     Solution.clearTables()
     unittest.main(verbosity=2, exit=False)
-    Solution.clearTables()
