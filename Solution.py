@@ -207,7 +207,7 @@ def deleteCritic(critic_id: int) -> ReturnValue:
     
     result = ReturnValue.OK
 
-    if getCriticProfile(critic_id) is Critic.badCritic():
+    if getCriticProfile(critic_id) == Critic.badCritic():
         result = ReturnValue.NOT_EXISTS
         return result
 
@@ -617,8 +617,32 @@ def studioDidntProduceMovie(studioID: int, movieName: str, movieYear: int) -> Re
 
 # ---------------------------------- BASIC API: ----------------------------------
 def averageRating(movieName: str, movieYear: int) -> float:
-    # TODO: implement
-    pass
+    """ returns the average rating of a movie by all critics who rated it. 0 in case of division by zero or movie not found. or other errors
+    """
+    
+    conn = None
+    result = 0.0
+    try:
+        conn = Connector.DBConnector()
+        query = "SELECT AVG(rating) FROM Ratings WHERE MovieName = {movieName} AND MovieYear = {movieYear};"
+        query = query.format(movieName=stringQouteMark(movieName),
+                             movieYear=movieYear)
+        rows_count, rows = conn.execute(query)
+        row = rows[0]['avg']
+        result = float(row)
+        if result is None:
+            result = 0.0
+    except DatabaseException.ConnectionInvalid as e:
+        print(e)
+    except Exception as e:
+        print(e)
+    finally:
+        conn.close()
+
+    return result
+
+
+
 
 
 def averageActorRating(actorID: int) -> float:
