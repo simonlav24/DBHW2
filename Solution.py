@@ -10,7 +10,7 @@ from Business.Studio import Studio
 from Business.Critic import Critic
 from Business.Actor import Actor
 
-DEBUG = False
+DEBUG = True
 
 # ---------------------------------- CRUD API: ----------------------------------
 
@@ -55,11 +55,10 @@ def createTables():
         create_Ratings_table = """
                         CREATE TABLE IF NOT EXISTS Ratings(
                         MovieName TEXT NOT NULL,
-                        MovieYear INTEGER NOT NULL CHECK (MovieYear > 1984),
-                        CriticID INTEGER NOT NULL,
+                        MovieYear INTEGER NOT NULL,
+                        CriticID INTEGER NOT NULL REFERENCES Critic(ID) ON DELETE CASCADE,
                         Rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <=5),
-                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie(Name, Year),
-                        FOREIGN KEY(CriticID) REFERENCES Critic(ID),
+                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie(Name, Year) ON DELETE CASCADE,
                         UNIQUE(MovieName, MovieYear, CriticID)
                         );
                         """
@@ -74,22 +73,28 @@ def createTables():
         conn.commit()
 
     except DatabaseException.ConnectionInvalid as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.CHECK_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except Exception as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     finally:
         conn.close()
@@ -107,22 +112,28 @@ def clearTables():
         conn.commit()
 
     except DatabaseException.ConnectionInvalid as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.CHECK_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except Exception as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     finally:
         conn.close()
@@ -141,22 +152,28 @@ def dropTables():
                      "COMMIT;"
                      )
     except DatabaseException.ConnectionInvalid as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.NOT_NULL_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.CHECK_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.UNIQUE_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     except Exception as e:
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     finally:
         conn.close()
@@ -166,7 +183,7 @@ def addCritic(critic: Critic) -> ReturnValue:
     conn = None
 
     critic_id = critic.getCriticID()
-    critic_id = critic_id if critic_id is not None else "NULL"
+    critic_id = validateInteger(critic_id)
     critic_name = critic.getName()
     critic_name = stringQouteMark(critic_name)
 
@@ -180,20 +197,29 @@ def addCritic(critic: Critic) -> ReturnValue:
         conn.commit()
         # todo: figure out order of except
     except DatabaseException.ConnectionInvalid as e:
-        print(e)
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
     except DatabaseException.NOT_NULL_VIOLATION as e:
         result = ReturnValue.BAD_PARAMS
         if DEBUG:
             print(e)
     except DatabaseException.CHECK_VIOLATION as e:
-        print(e)
+        result = ReturnValue.BAD_PARAMS
+        if DEBUG:
+            print(e)
     except DatabaseException.UNIQUE_VIOLATION as e:
         result = ReturnValue.ALREADY_EXISTS
-        print(e)
+        if DEBUG:
+            print(e)
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        result = ReturnValue.BAD_PARAMS
+        if DEBUG:
+            print(e)
     except Exception as e:
-        print(e)
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
     finally:
         if result is not ReturnValue.OK:
             conn.rollback()
@@ -207,41 +233,20 @@ def deleteCritic(critic_id: int) -> ReturnValue:
     
     result = ReturnValue.OK
 
-    if getCriticProfile(critic_id) is Critic.badCritic():
-        result = ReturnValue.NOT_EXISTS
-        return result
-
     try:
         conn = Connector.DBConnector()
         query = "DELETE FROM Critic Where ID = {critic_id};"
         query = query.format(critic_id=critic_id)
-        conn.execute(query)
+        rows_count, _ = conn.execute(query)
         conn.commit()
-    except DatabaseException.ConnectionInvalid as e:
-        result = ReturnValue.ERROR
-        print(e)
-        conn.rollback()
-    except DatabaseException.NOT_NULL_VIOLATION as e:
-        result = ReturnValue.ERROR
-        print(e)
-        conn.rollback()
-    except DatabaseException.CHECK_VIOLATION as e:
-        result = ReturnValue.ERROR
-        print(e)
-        conn.rollback()
-    except DatabaseException.UNIQUE_VIOLATION as e:
-        result = ReturnValue.ERROR
-        print(e)
-        conn.rollback()
-    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        result = ReturnValue.ERROR
-        print(e)
-        conn.rollback()
     except Exception as e:
         result = ReturnValue.ERROR
-        print(e)
+        if DEBUG:
+            print(e)
         conn.rollback()
     finally:
+        if rows_count == 0:
+            result = ReturnValue.NOT_EXISTS
         if result is not ReturnValue.OK:
             conn.rollback()
         conn.close()
@@ -252,7 +257,8 @@ def deleteCritic(critic_id: int) -> ReturnValue:
 def getCriticProfile(critic_id: int) -> Critic:
     conn = None
 
-    critic_id = critic_id if critic_id is not None else "Null"
+    critic_id = validateInteger(critic_id)
+    result = Critic.badCritic()
 
     rows_count = 0
     try:
@@ -260,39 +266,31 @@ def getCriticProfile(critic_id: int) -> Critic:
         rows = Connector.ResultSet()
         query = "select * FROM Critic Where ID = {critic_id};"
         query = query.format(critic_id=critic_id)
-        rows_count, rows = conn.execute(query, True)
+        rows_count, rows = conn.execute(query)
 
 
-    except Exception as error:
-        print(error)
+    except Exception as e:
+        print(e)
     finally:
-        if rows_count == 0 or rows_count > 1:
-            return Critic.badCritic()
-
-        #print("Num of rows: {rows}".format(rows=rows_count))
-        row = rows.__getitem__(0)
-        res_critic_id = row.__getitem__("id")
-        res_critic_name = row.__getitem__("name")
-        result = Critic(res_critic_id, res_critic_name)
         if conn is not None:
             conn.close()
+
+        if rows_count == 1:
+            row = rows[0]
+            res_critic_id = row["id"]
+            res_critic_name = row["name"]
+            result = Critic(res_critic_id, res_critic_name)
+
         return result
 
 
 def addActor(actor: Actor) -> ReturnValue:
     conn = None
 
-    actor_id = actor.getActorID()
-    actor_id = actor_id if actor_id is not None else "NULL"
-
-    actor_name = actor.getActorName()
-    actor_name = stringQouteMark(actor_name)
-
-    actor_age = actor.getAge()
-    actor_age = actor_age if actor_age is not None else "NULL"
-
-    actor_height = actor.getHeight()
-    actor_height = actor_height if actor_height is not None else "NULL"
+    actor_id = validateInteger(actor.getActorID())
+    actor_name = stringQouteMark(actor.getActorName())
+    actor_age = validateInteger(actor.getAge())
+    actor_height = validateInteger(actor.getHeight())
 
     result = ReturnValue.OK
 
@@ -307,6 +305,7 @@ def addActor(actor: Actor) -> ReturnValue:
         conn.commit()
         # todo: figure out order of except
     except DatabaseException.ConnectionInvalid as e:
+        result = ReturnValue.ERROR
         if DEBUG:
             print(e)
     except DatabaseException.NOT_NULL_VIOLATION as e:
@@ -314,16 +313,15 @@ def addActor(actor: Actor) -> ReturnValue:
         if DEBUG:
             print(e)
     except DatabaseException.CHECK_VIOLATION as e:
+        result = ReturnValue.BAD_PARAMS
         if DEBUG:
             print(e)
     except DatabaseException.UNIQUE_VIOLATION as e:
         result = ReturnValue.ALREADY_EXISTS
         if DEBUG:
             print(e)
-    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        if DEBUG:
-            print(e)
     except Exception as e:
+        result = ReturnValue.ERROR
         if DEBUG:
             print(e)
     finally:
@@ -336,81 +334,65 @@ def addActor(actor: Actor) -> ReturnValue:
 
 def deleteActor(actor_id: int) -> ReturnValue:
     conn = None
-    actor = Actor
-    actor = actor.getActorProfile(actor_id)
 
     result = ReturnValue.OK
 
     try:
         conn = Connector.DBConnector()
-        query = sql.SQL("DELETE FROM Actor WHERE id={0}").format(
-            sql.Literal(actor_id))
-        rows_effected, _ = conn.execute(query)
-
-#        query = query.format(actor_id=actor_id, actor_name=actor_name,
-#                             actor_age=actor_age, actor_height=actor_height)
- #       conn.execute(query)
-  #      conn.commit()
-        # todo: figure out order of except
-    except DatabaseException.ConnectionInvalid as e:
-        print(e)
-    except DatabaseException.NOT_NULL_VIOLATION as e:
-        result = ReturnValue.BAD_PARAMS
+        query = "DELETE FROM Actor Where (ID = {actor_id});"
+        query = query.format(actor_id=actor_id)
+        rows_count, _ = conn.execute(query)
+        conn.commit()
+    except Exception as e:
+        result = ReturnValue.ERROR
         if DEBUG:
             print(e)
-    except DatabaseException.CHECK_VIOLATION as e:
-        print(e)
-    except DatabaseException.UNIQUE_VIOLATION as e:
-        print(e)
-    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
-    except Exception as e:
-        print(e)
+        conn.rollback()
     finally:
+        if rows_count == 0:
+            result = ReturnValue.NOT_EXISTS
         if result is not ReturnValue.OK:
             conn.rollback()
         conn.close()
-
     return result
 
-
-pass
 
 
 def getActorProfile(actor_id: int) -> Actor:
     conn = None
-    rows_effected, result = 0, Actor()
+
+    result = Actor.badActor()
+    rows_count = 0
+
     try:
         conn = Connector.DBConnector()
-        rows_effected, result = conn.execute(
-            "SELECT * FROM Actor", printSchema=actor_id)
-        # rows_effected is the number of rows received by the SELECT
-    except DatabaseException.ConnectionInvalid as e:
-        print(e)
-    except DatabaseException.NOT_NULL_VIOLATION as e:
-        print(e)
-    except DatabaseException.CHECK_VIOLATION as e:
-        print(e)
-    except DatabaseException.UNIQUE_VIOLATION as e:
-        print(e)
-    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        rows = Connector.ResultSet()
+        query = "select * FROM Actor Where (ID = {actor_id});"
+        query = query.format(actor_id=actor_id)
+        rows_count, rows = conn.execute(query)
+
     except Exception as e:
-        print(e)
+        if DEBUG:
+            print(e)
     finally:
-        conn.close()
-        return result
+        if rows_count == 1:
+            row = rows[0]
+            res_actor_id = row["id"]
+            res_actor_name = row["name"]
+            res_actor_age = row["age"]
+            res_actor_height = row["height"]
+            result = Actor(res_actor_id, res_actor_name, res_actor_age, res_actor_height)
+        if conn is not None:
+            conn.close()
+    return result
 
 
 def addMovie(movie: Movie) -> ReturnValue:
     conn = None
 
-    movie_name = movie.getMovieName()
-    movie_name = stringQouteMark(movie_name)
-    movie_year = movie.getYear()
-    movie_year = movie_year if movie_year is not None else "NULL"
-    movie_genre = movie.getGenre()
-    movie_genre = stringQouteMark(movie_genre)
+    movie_name = stringQouteMark(movie.getMovieName())
+    movie_year = validateInteger(movie.getYear())
+    movie_genre = stringQouteMark(movie.getGenre())
     result = ReturnValue.OK
 
     try:
@@ -423,7 +405,9 @@ def addMovie(movie: Movie) -> ReturnValue:
         conn.commit()
         # todo: figure out order of except
     except DatabaseException.ConnectionInvalid as e:
-        print(e)
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
     except DatabaseException.NOT_NULL_VIOLATION as e:
         result = ReturnValue.BAD_PARAMS
         if DEBUG:
@@ -434,11 +418,12 @@ def addMovie(movie: Movie) -> ReturnValue:
             print(e)
     except DatabaseException.UNIQUE_VIOLATION as e:
         result = ReturnValue.ALREADY_EXISTS
-        print(e)
-    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
     except Exception as e:
-        print(e)
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
     finally:
         if result is not ReturnValue.OK:
             conn.rollback()
@@ -448,15 +433,40 @@ def addMovie(movie: Movie) -> ReturnValue:
 
 
 def deleteMovie(movie_name: str, year: int) -> ReturnValue:
-    # TODO: implement
-    pass
+    conn = None
+
+    result = ReturnValue.OK
+
+    string_movie_name = stringQouteMark(movie_name)
+    try:
+        conn = Connector.DBConnector()
+        query = "DELETE FROM Movie Where (Name = {string_movie_name} AND Year = {movie_year});"
+        query = query.format(string_movie_name=string_movie_name,
+                             movie_year=year)
+        rows_count, _ = conn.execute(query)
+        conn.commit()
+    except Exception as e:
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
+        conn.rollback()
+    finally:
+        if rows_count == 0:
+            result = ReturnValue.NOT_EXISTS
+        if result is not ReturnValue.OK:
+            conn.rollback()
+        conn.close()
+
+    return result
 
 
 def getMovieProfile(movie_name: str, year: int) -> Movie:
     conn = None
 
     string_movie_name = stringQouteMark(movie_name)
-    movie_year = year if year is not None else "Null"
+    movie_year = validateInteger(year)
+    result = Movie.badMovie()
+
     rows_count = 0
     try:
         conn = Connector.DBConnector()
@@ -464,35 +474,30 @@ def getMovieProfile(movie_name: str, year: int) -> Movie:
         query = "select * FROM Movie Where (Name = {string_movie_name} AND Year = {movie_year});"
         query = query.format(string_movie_name=string_movie_name,
                              movie_year=movie_year)
-        rows_count, rows = conn.execute(query, True)
+        rows_count, rows = conn.execute(query)
 
-    except DatabaseException.NOT_NULL_VIOLATION as e:
+    except Exception as e:
         if DEBUG:
             print(e)
-    except Exception as error:
-        print(error)
     finally:
-        if rows_count == 0 or rows_count > 1:
-            return Movie.badMovie()
+        if rows_count == 1:
+            row = rows[0]
+            res_movie_name = row["name"]
+            res_movie_year = row["year"]
+            res_movie_genre = row["genre"]
+            result = Movie(res_movie_name, res_movie_year, res_movie_genre)
+    
+    if conn is not None:
+        conn.close()
+    return result
 
-        #print("Num of rows: {rows}".format(rows=rows_count))
-        row = rows.__getitem__(0)
-        res_movie_name = row["name"]
-        res_movie_year = row["year"]
-        res_movie_genre = row["genre"]
-        result = Movie(res_movie_name, res_movie_year, res_movie_genre)
-        if conn is not None:
-            conn.close()
-        return result
 
 
 def addStudio(studio: Studio) -> ReturnValue:
     conn = None
 
-    studio_id = studio.getStudioID()
-    studio_id = studio_id if studio_id is not None else "NULL"
-    studio_name = studio.getStudioName()
-    studio_name = stringQouteMark(studio_name)
+    studio_id = validateInteger(studio.getStudioID())
+    studio_name = stringQouteMark(studio.getStudioName())
 
     result = ReturnValue.OK
     try:
@@ -502,9 +507,6 @@ def addStudio(studio: Studio) -> ReturnValue:
                              studio_name=studio_name)
         conn.execute(query)
         conn.commit()
-        # todo: figure out order of except
-    except DatabaseException.ConnectionInvalid as e:
-        print(e)
     except DatabaseException.NOT_NULL_VIOLATION as e:
         result = ReturnValue.BAD_PARAMS
         if DEBUG:
@@ -515,27 +517,69 @@ def addStudio(studio: Studio) -> ReturnValue:
             print(e)
     except DatabaseException.UNIQUE_VIOLATION as e:
         result = ReturnValue.ALREADY_EXISTS
-        print(e)
-    except DatabaseException.FOREIGN_KEY_VIOLATION as e:
-        print(e)
+        if DEBUG:
+            print(e)
     except Exception as e:
-        print(e)
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
     finally:
         if result is not ReturnValue.OK:
             conn.rollback()
         conn.close()
-
     return result
 
 
 def deleteStudio(studio_id: int) -> ReturnValue:
-    # TODO: implement
-    pass
+    conn = None
+
+    result = ReturnValue.OK
+
+    try:
+        conn = Connector.DBConnector()
+        query = "DELETE FROM Studio Where (ID = {studio_id});"
+        query = query.format(studio_id=studio_id)
+        rows_count, _ = conn.execute(query)
+        conn.commit()
+    except Exception as e:
+        result = ReturnValue.ERROR
+        if DEBUG:
+            print(e)
+        conn.rollback()
+    finally:
+        if rows_count == 0:
+            result = ReturnValue.NOT_EXISTS
+        if result is not ReturnValue.OK:
+            conn.rollback()
+        conn.close()
+    return result
 
 
 def getStudioProfile(studio_id: int) -> Studio:
-    # TODO: implement
-    pass
+    conn = None
+
+    result = Studio.badStudio()
+    rows_count = 0
+
+    try:
+        conn = Connector.DBConnector()
+        rows = Connector.ResultSet()
+        query = "select * FROM Studio Where (ID = {studio_id});"
+        query = query.format(studio_id=studio_id)
+        rows_count, rows = conn.execute(query)
+
+    except Exception as e:
+        if DEBUG:
+            print(e)
+    finally:
+        if rows_count == 1:
+            row = rows[0]
+            res_studio_id = row["id"]
+            res_studio_name = row["name"]
+            result = Studio(res_studio_id, res_studio_name)
+        if conn is not None:
+            conn.close()
+    return result
 
 
 def criticRatedMovie(movieName: str, movieYear: int, criticID: int, rating: int) -> ReturnValue:
@@ -568,20 +612,24 @@ def criticRatedMovie(movieName: str, movieYear: int, criticID: int, rating: int)
         # todo: figure out order of except
     except DatabaseException.ConnectionInvalid as e:
         result = ReturnValue.ERROR
-        print(e)
+        if DEBUG:
+            print(e)
     except DatabaseException.CHECK_VIOLATION as e:
         result = ReturnValue.BAD_PARAMS
         if DEBUG:
             print(e)
     except DatabaseException.UNIQUE_VIOLATION as e:
         result = ReturnValue.ALREADY_EXISTS
-        print(e)
+        if DEBUG:
+            print(e)
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         result = ReturnValue.ERROR
-        print(e)
+        if DEBUG:
+            print(e)
     except Exception as e:
         result = ReturnValue.ERROR
-        print(e)
+        if DEBUG:
+            print(e)
     finally:
         if result is not ReturnValue.OK:
             conn.rollback()
@@ -673,5 +721,12 @@ def stringQouteMark(string: str) -> str:
         return "Null"
 
     return "'" + string + "'"
+
+
+def validateInteger(integer: int):
+    if not integer:
+        return "Null"
+
+    return integer
 
 # GOOD LUCK!
