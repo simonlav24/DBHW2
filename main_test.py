@@ -87,7 +87,6 @@ class Test(AbstractTest):
             movie_name="Mission Impossible", year="1996", genre="Action")
         self.assertEqual(
             ReturnValue.OK, Solution.addMovie(mission_impossible), "should work")
-
         self.assertEqual(
             ReturnValue.OK, Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), jhon.getCriticID(), 3), "Added Critic OK")
         self.assertEqual(
@@ -99,7 +98,7 @@ class Test(AbstractTest):
         self.assertEqual(
             ReturnValue.NOT_EXISTS, Solution.criticRatedMovie(mission_impossible.getMovieName(), "1991", jhon.getCriticID(), 3), "movieyear = none")
         self.assertEqual(
-            ReturnValue.NOT_EXISTS, Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), None, 3), "criticid = none")
+            ReturnValue.NOT_EXISTS, Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), "Unknown Critic", 3), "criticid = none")
 
     def testAverageMovie(self):
         john = Critic(critic_id=1, critic_name="John")
@@ -142,4 +141,4 @@ if __name__ == '__main__':
     Solution.createTables()
     Solution.clearTables()
     unittest.main(verbosity=2, exit=False)
-    # Solution.dropTables()
+    Solution.dropTables()
