@@ -56,6 +56,18 @@ class Test(AbstractTest):
         self.assertEqual(ReturnValue.ALREADY_EXISTS,
                          Solution.addCritic(bob), "existing id")
 
+    def testActorPlayedInMovie(self) -> None:
+        leonardo = Actor(
+            actor_id=1, actor_name="Leonardo DiCaprio", age=48, height=183)
+        self.assertEqual(ReturnValue.OK, Solution.addActor(
+            leonardo), "Added LEO DI - OK")
+        mission_impossible = Movie(
+            movie_name="Mission Impossible", year="1996", genre="Action")
+        self.assertEqual(ReturnValue.OK, Solution.addMovie(
+            mission_impossible), "should work")
+        roles = ["actor1", "actor2"]
+        self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), leonardo.getActorID(), 1000, roles), "should work")
+
     def testActor(self) -> None:
         invalid_actor = Actor(
             actor_id=None, actor_name=None, age=-500, height=0)

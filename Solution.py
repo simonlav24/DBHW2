@@ -63,24 +63,24 @@ def createTables():
                         UNIQUE(MovieName, MovieYear, CriticID)
                         );
                         """
-
-        create_Roles_table = """
-                        CREATE TABLE IF NOT EXISTS Roles(
-                        MovieName TEXT NOT NULL,
-                        MovieYear INTEGER NOT NULL,
-                        ActorID INTEGER NOT NULL REFERENCES Actor(ID) ON DELETE CASCADE,
-                        Role TEXT NOT NULL,
-                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie(Name, Year) ON DELETE CASCADE
-                        );
-                        """
-
         create_Cast_table = """
                         CREATE TABLE IF NOT EXISTS Casts(
                         MovieName TEXT NOT NULL,
                         MovieYear INTEGER NOT NULL,
-                        ActorID INTEGER NOT NULL REFERENCES Actor(ID) ON DELETE CASCADE,
+                        ActorID INTEGER NOT NULL REFERENCES Actor ON DELETE CASCADE,
                         Salary INTEGER NOT NULL CHECK (Salary > 0),
-                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie(Name, Year) ON DELETE CASCADE
+                        FOREIGN KEY(MovieName, MovieYear) REFERENCES Movie ON DELETE CASCADE,
+                        UNIQUE(MovieName, MovieYear, ActorID)
+                        );
+                        """
+        create_Roles_table = """
+                        CREATE TABLE IF NOT EXISTS Roles(
+                        MovieName TEXT NOT NULL,
+                        MovieYear INTEGER NOT NULL,
+                        ActorID INTEGER NOT NULL,
+                        Role TEXT NOT NULL,
+                        FOREIGN KEY(MovieName, MovieYear, ActorID) REFERENCES Casts(MovieName, MovieYear, ActorID) ON DELETE CASCADE,
+                        UNIQUE(MovieName, MovieYear, ActorID, Role)
                         );
                         """
 
@@ -106,8 +106,8 @@ def createTables():
 
         # relations
         conn.execute(create_Ratings_table)
-        conn.execute(create_Roles_table)
         conn.execute(create_Cast_table)
+        conn.execute(create_Roles_table)
         conn.execute(create_Production_table)
 
         conn.commit()
@@ -129,6 +129,7 @@ def clearTables():
             DELETE FROM Ratings;
             DELETE FROM Casts;
             DELETE FROM Productions;
+            DELETE FROM Roles;
             """
     execute_query_delete(query)
 
@@ -145,6 +146,7 @@ def dropTables():
             "DROP TABLE IF EXISTS Ratings CASCADE;"
             "DROP TABLE IF EXISTS Casts CASCADE;"
             "DROP TABLE IF EXISTS Productions CASCADE;"
+            "DROP TABLE IF EXISTS Roles CASCADE;"
         )
         conn.commit()
     except Exception as e:
@@ -218,7 +220,8 @@ def getActorProfile(actor_id: int) -> Actor:
         res_actor_name = row["name"]
         res_actor_age = row["age"]
         res_actor_height = row["height"]
-        result = Actor(res_actor_id, res_actor_name, res_actor_age, res_actor_height)
+        result = Actor(res_actor_id, res_actor_name,
+                       res_actor_age, res_actor_height)
     return result
 
 
@@ -289,39 +292,67 @@ def criticRatedMovie(movieName: str, movieYear: int, criticID: int, rating: int)
     string_movie_name = stringQouteMark(movieName)
     query = "INSERT INTO Ratings (MovieName, MovieYear, CriticID, rating) VALUES \
                                     ({movieName}, {movieYear}, {criticID}, {rating});"
-    query = query.format(movieName=string_movie_name, movieYear=movieYear, criticID=criticID, rating=rating)
+    query = query.format(movieName=string_movie_name,
+                         movieYear=movieYear, criticID=criticID, rating=rating)
     return execute_query_insert(query)
 
 
 def criticDidntRateMovie(movieName: str, movieYear: int, criticID: int) -> ReturnValue:
     string_movie_name = stringQouteMark(movieName)
     query = "DELETE FROM Ratings Where (MovieName = {movieName} AND MovieYear = {movieYear} AND CriticID = {criticID});"
-    query = query.format(movieName=string_movie_name, movieYear=movieYear, criticID=criticID)
+    query = query.format(movieName=string_movie_name,
+                         movieYear=movieYear, criticID=criticID)
     return execute_query_delete(query)
 
 
 def actorPlayedInMovie(movieName: str, movieYear: int, actorID: int, salary: int, roles: List[str]) -> ReturnValue:
-    # first need to create roles in the roles table
-    pass
+    string_movie_name = stringQouteMark(movieName)
+
+    query_roles = ""
+    for role in roles:
+        string_role = stringQouteMark(role)
+        query_to_add = "({movieName}, {movieYear}, {actorId}, {string_role}),"
+        query_to_add = query_to_add.format(movieName=string_movie_name,
+                                           movieYear=movieYear,
+                                           actorId=actorID,
+                                           string_role=string_role)
+        query_roles += query_to_add
+    query_roles = query_roles[:-1] + \
+        ";" if not query_roles == "" else "(Null, Null, Null, Null);"
+    query = """
+            INSERT INTO Casts (MovieName, MovieYear, actorId, salary) VALUES
+            ({movieName}, {movieYear}, {actorId}, {salary});
+            INSERT INTO Roles (MovieName, MovieYear, actorId, Role) VALUES 
+            """
+    query = query + '\n' + query_roles
+    query = query.format(movieName=string_movie_name,
+                         movieYear=movieYear, actorId=actorID, salary=salary)
+    print(query)
+    return execute_query_insert(query)
 
 
-def actorDidntPlayeInMovie(movieName: str, movieYear: int, actorID: int) -> ReturnValue:
-    # TODO: implement
-    pass
+def actorDidntPlayInMovie(movieName: str, movieYear: int, actorID: int) -> ReturnValue:
+    string_movie_name = stringQouteMark(movieName)
+    query = "DELETE FROM Casts Where (movieName = {movieName} AND movieYear = {movieYear} AND actorID = {actorID});"
+    query = query.format(movieName=string_movie_name,
+                         movieYear=movieYear, actorID=actorID)
+    return execute_query_delete(query)
 
 
 def studioProducedMovie(studioID: int, movieName: str, movieYear: int, budget: int, revenue: int) -> ReturnValue:
     string_movie_name = stringQouteMark(movieName)
     query = "INSERT INTO Productions (studioID, MovieName, MovieYear, budget, revenue) VALUES \
                                     ({studioID}, {movieName}, {movieYear}, {budget}, {revenue});"
-    query = query.format(studioID=studioID, movieName=string_movie_name, movieYear=movieYear, budget=budget, revenue=revenue)
+    query = query.format(studioID=studioID, movieName=string_movie_name,
+                         movieYear=movieYear, budget=budget, revenue=revenue)
     return execute_query_insert(query)
 
 
 def studioDidntProduceMovie(studioID: int, movieName: str, movieYear: int) -> ReturnValue:
     string_movie_name = stringQouteMark(movieName)
     query = "DELETE FROM Productions Where (studioID = {studioID} AND movieName = {movieName} AND movieYear = {movieYear});"
-    query = query.format(studioID=studioID, movieName=string_movie_name, movieYear=movieYear)
+    query = query.format(
+        studioID=studioID, movieName=string_movie_name, movieYear=movieYear)
     return execute_query_delete(query)
 
 
@@ -334,7 +365,8 @@ def averageRating(movieName: str, movieYear: int) -> float:
     try:
         conn = Connector.DBConnector()
         query = "SELECT AVG(rating) FROM Ratings WHERE MovieName = {movieName} AND MovieYear = {movieYear};"
-        query = query.format(movieName=stringQouteMark(movieName), movieYear=movieYear)
+        query = query.format(movieName=stringQouteMark(
+            movieName), movieYear=movieYear)
         rows_count, rows = conn.execute(query)
         row = rows[0]['avg']
         result = float(row)
@@ -388,11 +420,22 @@ def bestPerformance(actor_id: int) -> Movie:
 
 
 def stageCrewBudget(movieName: str, movieYear: int) -> int:
-    # TODO: implement
+    # string_movie_name = stringQouteMark(movieName)
+    # query = "SELECT * FROM Productions WHERE(Name={string_movie_name} AND Year={movieYear});"
+    # query = query.format(string_movie_name=string_movie_name,
+    #                      movieYear=movieYear)
+    # _, rows_count, rows = execute_query_Select(query)
+    # if rows_count == 1:
+    #     row = rows[0]
+    #     res_critic_id = row["id"]
+    #     res_critic_name = row["name"]
+    #     result = Critic(res_critic_id, res_critic_name)
+    # return result
     pass
 
 
 def overlyInvestedInMovie(movie_name: str, movie_year: int, actor_id: int) -> bool:
+    # string_movie_name = stringQouteMark(movie_name)
     # TODO: implement
     pass
 
