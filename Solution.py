@@ -180,7 +180,7 @@ def getCriticProfile(critic_id: int) -> Critic:
     result = Critic.badCritic()
     query = "select * FROM Critic Where ID = {critic_id};"
     query = query.format(critic_id=critic_id)
-    _, rows_count, rows = execute_query_Select(query)
+    _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
         row = rows[0]
         res_critic_id = row["id"]
@@ -213,7 +213,7 @@ def getActorProfile(actor_id: int) -> Actor:
     result = Actor.badActor()
     query = "select * FROM Actor Where (ID = {actor_id});"
     query = query.format(actor_id=actor_id)
-    _, rows_count, rows = execute_query_Select(query)
+    _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
         row = rows[0]
         res_actor_id = row["id"]
@@ -250,7 +250,7 @@ def getMovieProfile(movie_name: str, year: int) -> Movie:
     result = Movie.badMovie()
     query = "select * FROM Movie Where (Name = {string_movie_name} AND Year = {movie_year});"
     query = query.format(string_movie_name=string_movie_name, movie_year=year)
-    _, rows_count, rows = execute_query_Select(query)
+    _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
         row = rows[0]
         res_movie_name = row["name"]
@@ -279,7 +279,7 @@ def getStudioProfile(studio_id: int) -> Studio:
     result = Studio.badStudio()
     query = "SELECT * FROM Studio WHERE (ID = {studio_id});"
     query = query.format(studio_id=studio_id)
-    _, rows_count, rows = execute_query_Select(query)
+    _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
         row = rows[0]
         res_studio_id = row["id"]
@@ -327,7 +327,6 @@ def actorPlayedInMovie(movieName: str, movieYear: int, actorID: int, salary: int
     query = query + '\n' + query_roles
     query = query.format(movieName=string_movie_name,
                          movieYear=movieYear, actorId=actorID, salary=salary)
-    print(query)
     return execute_query_insert(query)
 
 
@@ -381,42 +380,65 @@ def averageRating(movieName: str, movieYear: int) -> float:
 
     return result
 
-
-def averageActorRating(actorID: int) -> float:
-    """  the average of average ratings of movies in which the actor played,
+"""  the average of average ratings of movies in which the actor played,
          or 0 if the actor did not play in any movie.
          if any movie has no ratings, it is counted as having average rating of 0.
          In case the actor does not exist, or have not played in any movies with ratings, return 0. """
-    conn = None
+def averageActorRating(actorID: int) -> float:
     result = 0.0
-    try:
-        conn = Connector.DBConnector()
-
-        # todo
-        # select all movies that the actor played in
-        # select all ratings of the movies
-        # select the average of the ratings
-        # select the average of the averages
-
-        query = query.format(actorID=actorID)
-        rows_count, rows = conn.execute(query)
-        row = rows[0]['avg']
-        result = float(row)
-        if result is None:
-            result = 0.0
-    except DatabaseException.ConnectionInvalid as e:
-        print(e)
-    except Exception as e:
-        print(e)
-    finally:
-        conn.close()
-
+    query = """
+            SELECT Avg(single_movie_rating) FROM (
+            SELECT Casts.MovieName, Casts.MovieYear, COALESCE(AVG(rating), 0) AS single_movie_rating
+            FROM Casts
+            LEFT OUTER JOIN Ratings
+            ON Casts.MovieName = Ratings.MovieName AND Casts.MovieYear = Ratings.MovieYear
+            WHERE actorID = {actorID}
+            GROUP BY Casts.MovieName, Casts.MovieYear
+            ) AS TEMPORARAY_NAME
+            """
+    query = query.format(actorID=actorID)
+    ret_res, rows_count, rows = execute_query_select(query)
+    if rows_count == 1 and ret_res == ReturnValue.OK:
+        result = float(rows[0]['avg']) if rows[0]['avg'] else result
     return result
 
 
+"""
+Input: ID of the actor
+Output: Movie object of the best rated (by average rating) movie the actor has played in.
+If multiple movies share the highest average rating, tie breaker is done by choosing the
+earlier release, and for movies released in the same year choosing the movie with greater
+name (lexicographically)
+In case the actor doesn’t exist or did not play in any movies, return badMovie()
+"""
 def bestPerformance(actor_id: int) -> Movie:
-    # TODO: implement
-    pass
+	
+    result = Movie.badMovie()
+    query = """
+            SELECT movie.name, movie.year, movie.genre, Castings.rating FROM
+	        movie RIGHT OUTER JOIN (
+			SELECT Casts.MovieName, Casts.MovieYear, COALESCE(rating, -1) AS rating
+	        FROM Casts LEFT OUTER JOIN Ratings
+            ON Casts.MovieName = Ratings.MovieName AND Casts.MovieYear = Ratings.MovieYear
+            WHERE actorID = {actor_id}
+		    ) AS Castings
+		    ON Castings.MovieName = movie.name AND Castings.MovieYear = movie.Year
+	        ORDER BY 
+			Castings.rating DESC,
+	        Castings.MovieYear ASC,
+	        Castings.MovieNAME DESC
+			LIMIT 1
+            """
+    query = query.format(actor_id=actor_id)
+    ret_res, rows_count, rows = execute_query_select(query)
+    if rows_count == 1 and ret_res == ReturnValue.OK:
+        row = rows[0]
+        res_movie_name = row["name"]
+        res_movie_year = row["year"]
+        res_movie_genre = row["genre"]
+        result = Movie(res_movie_name, res_movie_year, res_movie_genre)
+    return result
+
 
 
 def stageCrewBudget(movieName: str, movieYear: int) -> int:
@@ -424,7 +446,7 @@ def stageCrewBudget(movieName: str, movieYear: int) -> int:
     # query = "SELECT * FROM Productions WHERE(Name={string_movie_name} AND Year={movieYear});"
     # query = query.format(string_movie_name=string_movie_name,
     #                      movieYear=movieYear)
-    # _, rows_count, rows = execute_query_Select(query)
+    # _, rows_count, rows = execute_query_select(query)
     # if rows_count == 1:
     #     row = rows[0]
     #     res_critic_id = row["id"]
@@ -569,7 +591,7 @@ def execute_query_delete(query: Union[str, sql.Composed]) -> ReturnValue:
         return ReturnValue.ERROR
 
 
-def execute_query_Select(query: Union[str, sql.Composed]) -> Tuple[ReturnValue, int, Connector.ResultSet]:
+def execute_query_select(query: Union[str, sql.Composed]) -> Tuple[ReturnValue, int, Connector.ResultSet]:
     conn = Connector.DBConnector()
     try:
         rows_count, data = conn.execute(query)

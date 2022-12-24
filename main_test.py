@@ -175,6 +175,76 @@ class Test(AbstractTest):
         self.assertEqual(avg, Solution.averageRating(
             mission_impossible.getMovieName(), mission_impossible.getYear()), "average rating")
 
+    def testAverageActor(self):
+        john = Critic(critic_id=1, critic_name="John")
+        markus = Critic(critic_id=2, critic_name="Markus")
+        Solution.addCritic(john)
+        Solution.addCritic(markus)
+
+        mission_impossible = Movie(
+            movie_name="Mission Impossible", year="1996", genre="Action")
+        Solution.addMovie(mission_impossible)
+        mission_impossible_2 = Movie(
+            movie_name="Mission Impossible2", year="1997", genre="Action")
+        Solution.addMovie(mission_impossible_2)
+        mission_impossible_2_remake = Movie(
+            movie_name="Mission Impossible2", year="2005", genre="Action")
+        Solution.addMovie(mission_impossible_2_remake)
+        mission_impossible_3 = Movie(
+            movie_name="Mission Impossible3", year="1998", genre="Action")
+        Solution.addMovie(mission_impossible_3)
+        Tom = Actor(
+            actor_id=1, actor_name="Tom Cruise", age=48, height=183)
+        self.assertEqual(ReturnValue.OK, Solution.addActor(
+            Tom), "should work")
+        self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), Tom.getActorID(), 1000, ["Actor"]), "should work")
+        self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(mission_impossible_2.getMovieName(
+        ), mission_impossible_2.getYear(), Tom.getActorID(), 1000, ["Actor"]), "should work")
+        self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(mission_impossible_3.getMovieName(
+        ), mission_impossible_3.getYear(), Tom.getActorID(), 1000, ["Actor"]), "should work")
+        #self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(mission_impossible_2_remake.getMovieName(
+        #), mission_impossible_2_remake.getYear(), Tom.getActorID(), 1000, ["Actor"]), "should work")
+        self.assertEqual(ReturnValue.OK,Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), john.getCriticID(), 1), "Critic 1")
+        self.assertEqual(ReturnValue.OK,Solution.criticRatedMovie(mission_impossible_2.getMovieName(
+        ), mission_impossible_2.getYear(), john.getCriticID(), 2), "Critic 2")
+        self.assertEqual(ReturnValue.OK,Solution.criticRatedMovie(mission_impossible_3.getMovieName(
+        ), mission_impossible_3.getYear(), john.getCriticID(), 5), "Critic 5")
+        self.assertEqual(ReturnValue.OK,Solution.criticRatedMovie(mission_impossible_2.getMovieName(
+        ), mission_impossible_2.getYear(), markus.getCriticID(), 4), "Critic 4")
+        self.assertEqual(ReturnValue.OK,Solution.criticRatedMovie(mission_impossible_3.getMovieName(
+        ), mission_impossible_3.getYear(), markus.getCriticID(), 5), "Critic 5")
+        self.assertEqual(ReturnValue.OK, Solution.criticRatedMovie(mission_impossible_2_remake.getMovieName(
+        ), mission_impossible_2_remake.getYear(), markus.getCriticID(), 1), "Critic 5")
+        self.assertEqual(3.0, Solution.averageActorRating(Tom.getActorID()), "Avg = 3")
+
+        Leonardo = Actor(
+            actor_id=2, actor_name="Leonardo DiCaprio", age=48, height=183)
+        self.assertEqual(ReturnValue.OK, Solution.addActor(
+            Leonardo), "should work")
+        self.assertEqual(0.0, Solution.averageActorRating(
+            Leonardo.getActorID()), "Avg = 0")
+
+        Jackie = Actor(
+            actor_id=3, actor_name="Jackie Chan", age=48, height=183)
+        self.assertEqual(ReturnValue.OK, Solution.addActor(
+            Jackie), "should work")
+        Rush_hour = Movie(
+            movie_name="rush HOur", year="1996", genre="Action")
+        Solution.addMovie(Rush_hour)
+        Rush_hour_2 = Movie(
+            movie_name="rush HOur 2", year="1997", genre="Action")
+        Solution.addMovie(Rush_hour_2)
+
+        self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(Rush_hour.getMovieName(
+        ), Rush_hour.getYear(), Jackie.getActorID(), 1000, ["Actor"]), "should work")
+        self.assertEqual(ReturnValue.OK, Solution.actorPlayedInMovie(Rush_hour_2.getMovieName(
+        ), Rush_hour_2.getYear(), Jackie.getActorID(), 1000, ["Actor"]), "should work")
+        self.assertEqual(ReturnValue.OK, Solution.criticRatedMovie(Rush_hour.getMovieName(
+        ), Rush_hour.getYear(), john.getCriticID(), 5), "Critic 1")
+        self.assertEqual(2.5, Solution.averageActorRating(
+            Jackie.getActorID()), "Avg = 2.5")
 
 # *** DO NOT RUN EACH TEST MANUALLY ***
 if __name__ == '__main__':
