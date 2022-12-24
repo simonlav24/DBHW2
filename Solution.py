@@ -320,7 +320,7 @@ def studioProducedMovie(studioID: int, movieName: str, movieYear: int, budget: i
 
 def studioDidntProduceMovie(studioID: int, movieName: str, movieYear: int) -> ReturnValue:
     string_movie_name = stringQouteMark(movieName)
-    query = "DELETE FROM Ratings Where (studioID = {studioID} AND movieName = {movieName} AND movieYear = {movieYear});"
+    query = "DELETE FROM Productions Where (studioID = {studioID} AND movieName = {movieName} AND movieYear = {movieYear});"
     query = query.format(studioID=studioID, movieName=string_movie_name, movieYear=movieYear)
     return execute_query_delete(query)
 
@@ -526,7 +526,7 @@ def execute_query_delete(query: Union[str, sql.Composed]) -> ReturnValue:
         return ReturnValue.ERROR
 
 
-def execute_query_Select(query: Union[str, sql.Composed]) -> Tuple(ReturnValue, int, Connector.ResultSet):
+def execute_query_Select(query: Union[str, sql.Composed]) -> Tuple[ReturnValue, int, Connector.ResultSet]:
     conn = Connector.DBConnector()
     try:
         rows_count, data = conn.execute(query)

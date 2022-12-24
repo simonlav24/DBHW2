@@ -18,6 +18,30 @@ from random import randint
 
 class Test(AbstractTest):
 
+    def testAddRemoveCriticRatedMovie(self) -> None:
+        jhon = Critic(
+            critic_id=1, critic_name="John")
+        mission_impossible = Movie(
+            movie_name="Mission Impossible", year="1996", genre="Action")
+        self.assertEqual(ReturnValue.OK, Solution.addMovie(
+            mission_impossible), "Added New Movie - OK")
+        self.assertEqual(ReturnValue.OK, Solution.addCritic(
+            jhon), "Added New Critic - OK")
+        self.assertEqual(ReturnValue.ALREADY_EXISTS, Solution.addCritic(
+            jhon), "Added New Critic - AlreadyExists")
+        self.assertEqual(ReturnValue.ALREADY_EXISTS, Solution.addMovie(
+            mission_impossible), "Added New Movie - AlreadyExists")
+        self.assertEqual(ReturnValue.OK, Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), jhon.getCriticID(), 3), "CriticRatedMovie - jhon, MI, 3 - OK")
+        self.assertEqual(
+            ReturnValue.OK, Solution.deleteCritic(jhon.getCriticID()), "Removed jhon - OK")
+        self.assertEqual(ReturnValue.OK, Solution.addCritic(
+            jhon), "Added New Critic - OK")
+        self.assertEqual(ReturnValue.OK, Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), jhon.getCriticID(), 3), "CriticRatedMovie - jhon, MI, 3 - OK")
+        self.assertEqual(
+            ReturnValue.OK, Solution.deleteMovie(mission_impossible.getMovieName(), mission_impossible.getYear()), "Removed MI - OK")
+
     def testCritic(self) -> None:
         invalid_critic = Critic(critic_id=1, critic_name=None)
         self.assertEqual(ReturnValue.BAD_PARAMS, Solution.addCritic(
@@ -98,7 +122,7 @@ class Test(AbstractTest):
         self.assertEqual(
             ReturnValue.NOT_EXISTS, Solution.criticRatedMovie(mission_impossible.getMovieName(), "1991", jhon.getCriticID(), 3), "movieyear = none")
         self.assertEqual(
-            ReturnValue.NOT_EXISTS, Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), "Unknown Critic", 3), "criticid = none")
+            ReturnValue.NOT_EXISTS, Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), 123, 3), "criticid = none")
 
     def testAverageMovie(self):
         john = Critic(critic_id=1, critic_name="John")
@@ -117,22 +141,27 @@ class Test(AbstractTest):
             movie_name="Mission Impossible", year="1996", genre="Action")
         Solution.addMovie(mission_impossible)
 
-        self.assertEqual(0.0, Solution.averageRating(mission_impossible.getMovieName(), mission_impossible.getYear()), "average rating")
+        self.assertEqual(0.0, Solution.averageRating(
+            mission_impossible.getMovieName(), mission_impossible.getYear()), "average rating")
 
         ratings = [randint(1, 5) for i in range(6)]
         avg = sum(ratings) / len(ratings)
 
-        Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), john.getCriticID(), ratings[0])
-        Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), markus.getCriticID(), ratings[1])
-        Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), amit.getCriticID(), ratings[2])
-        Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), ranjit.getCriticID(), ratings[3])
-        Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), petrus.getCriticID(), ratings[4])
-        Solution.criticRatedMovie(mission_impossible.getMovieName(), mission_impossible.getYear(), claudius.getCriticID(), ratings[5])
+        Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), john.getCriticID(), ratings[0])
+        Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), markus.getCriticID(), ratings[1])
+        Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), amit.getCriticID(), ratings[2])
+        Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), ranjit.getCriticID(), ratings[3])
+        Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), petrus.getCriticID(), ratings[4])
+        Solution.criticRatedMovie(mission_impossible.getMovieName(
+        ), mission_impossible.getYear(), claudius.getCriticID(), ratings[5])
 
-        self.assertEqual(avg, Solution.averageRating(mission_impossible.getMovieName(), mission_impossible.getYear()), "average rating")
-
-
-
+        self.assertEqual(avg, Solution.averageRating(
+            mission_impossible.getMovieName(), mission_impossible.getYear()), "average rating")
 
 
 # *** DO NOT RUN EACH TEST MANUALLY ***
