@@ -121,26 +121,16 @@ def createTables():
 
 
 def clearTables():
-    conn = None
-    try:
-        conn = Connector.DBConnector()
-        conn.execute(
-            "DELETE FROM Critic;"
-            "DELETE FROM Movie;"
-            "DELETE FROM Actor;"
-            "DELETE FROM Studio;"
-            "DELETE FROM Ratings;"
-            "DELETE FROM Casts;"
-            "DELETE FROM Productions;"
-        )
-        conn.commit()
-    except Exception as e:
-        if DEBUG:
-            print(e)
-        conn.rollback()
-    finally:
-        if conn is not None:
-            conn.close()
+    query = """
+            DELETE FROM Critic;
+            DELETE FROM Movie;
+            DELETE FROM Actor;
+            DELETE FROM Studio;
+            DELETE FROM Ratings;
+            DELETE FROM Casts;
+            DELETE FROM Productions;
+            """
+    execute_query_delete(query)
 
 
 def dropTables():
@@ -177,39 +167,24 @@ def addCritic(critic: Critic) -> ReturnValue:
     return execute_query_insert(query)
 
 
-
 def deleteCritic(critic_id: int) -> ReturnValue:
     query = "DELETE FROM Critic Where ID = {critic_id};"
     query = query.format(critic_id=critic_id)
     return execute_query_delete(query)
 
-def getCriticProfile(critic_id: int) -> Critic:
-    conn = None
 
+def getCriticProfile(critic_id: int) -> Critic:
     critic_id = validateInteger(critic_id)
     result = Critic.badCritic()
-
-    rows_count = 0
-    try:
-        conn = Connector.DBConnector()
-        rows = Connector.ResultSet()
-        query = "select * FROM Critic Where ID = {critic_id};"
-        query = query.format(critic_id=critic_id)
-        rows_count, rows = conn.execute(query)
-
-    except Exception as e:
-        print(e)
-    finally:
-        if conn is not None:
-            conn.close()
-
-        if rows_count == 1:
-            row = rows[0]
-            res_critic_id = row["id"]
-            res_critic_name = row["name"]
-            result = Critic(res_critic_id, res_critic_name)
-
-        return result
+    query = "select * FROM Critic Where ID = {critic_id};"
+    query = query.format(critic_id=critic_id)
+    _, rows_count, rows = execute_query_Select(query)
+    if rows_count == 1:
+        row = rows[0]
+        res_critic_id = row["id"]
+        res_critic_name = row["name"]
+        result = Critic(res_critic_id, res_critic_name)
+    return result
 
 
 def addActor(actor: Actor) -> ReturnValue:
@@ -233,32 +208,17 @@ def deleteActor(actor_id: int) -> ReturnValue:
 
 
 def getActorProfile(actor_id: int) -> Actor:
-    conn = None
-
     result = Actor.badActor()
-    rows_count = 0
-
-    try:
-        conn = Connector.DBConnector()
-        rows = Connector.ResultSet()
-        query = "select * FROM Actor Where (ID = {actor_id});"
-        query = query.format(actor_id=actor_id)
-        rows_count, rows = conn.execute(query)
-
-    except Exception as e:
-        if DEBUG:
-            print(e)
-    finally:
-        if rows_count == 1:
-            row = rows[0]
-            res_actor_id = row["id"]
-            res_actor_name = row["name"]
-            res_actor_age = row["age"]
-            res_actor_height = row["height"]
-            result = Actor(res_actor_id, res_actor_name,
-                           res_actor_age, res_actor_height)
-        if conn is not None:
-            conn.close()
+    query = "select * FROM Actor Where (ID = {actor_id});"
+    query = query.format(actor_id=actor_id)
+    _, rows_count, rows = execute_query_Select(query)
+    if rows_count == 1:
+        row = rows[0]
+        res_actor_id = row["id"]
+        res_actor_name = row["name"]
+        res_actor_age = row["age"]
+        res_actor_height = row["height"]
+        result = Actor(res_actor_id, res_actor_name, res_actor_age, res_actor_height)
     return result
 
 
@@ -269,47 +229,31 @@ def addMovie(movie: Movie) -> ReturnValue:
 
     query = "INSERT INTO Movie (Name, Year, Genre) VALUES ({movie_name}, {movie_year}, {movie_genre});"
     query = query.format(movie_name=movie_name,
-                             movie_year=movie_year,
-                             movie_genre=movie_genre)
+                         movie_year=movie_year,
+                         movie_genre=movie_genre)
     return execute_query_insert(query)
+
 
 def deleteMovie(movie_name: str, year: int) -> ReturnValue:
     string_movie_name = stringQouteMark(movie_name)
     query = "DELETE FROM Movie Where (Name = {string_movie_name} AND Year = {movie_year});"
     query = query.format(string_movie_name=string_movie_name,
-                             movie_year=year)
+                         movie_year=year)
     return execute_query_delete(query)
 
 
 def getMovieProfile(movie_name: str, year: int) -> Movie:
-    conn = None
-
     string_movie_name = stringQouteMark(movie_name)
-    movie_year = validateInteger(year)
     result = Movie.badMovie()
-
-    rows_count = 0
-    try:
-        conn = Connector.DBConnector()
-        rows = Connector.ResultSet()
-        query = "select * FROM Movie Where (Name = {string_movie_name} AND Year = {movie_year});"
-        query = query.format(string_movie_name=string_movie_name,
-                             movie_year=movie_year)
-        rows_count, rows = conn.execute(query)
-
-    except Exception as e:
-        if DEBUG:
-            print(e)
-    finally:
-        if rows_count == 1:
-            row = rows[0]
-            res_movie_name = row["name"]
-            res_movie_year = row["year"]
-            res_movie_genre = row["genre"]
-            result = Movie(res_movie_name, res_movie_year, res_movie_genre)
-
-    if conn is not None:
-        conn.close()
+    query = "select * FROM Movie Where (Name = {string_movie_name} AND Year = {movie_year});"
+    query = query.format(string_movie_name=string_movie_name, movie_year=year)
+    _, rows_count, rows = execute_query_Select(query)
+    if rows_count == 1:
+        row = rows[0]
+        res_movie_name = row["name"]
+        res_movie_year = row["year"]
+        res_movie_genre = row["genre"]
+        result = Movie(res_movie_name, res_movie_year, res_movie_genre)
     return result
 
 
@@ -318,8 +262,7 @@ def addStudio(studio: Studio) -> ReturnValue:
     studio_name = stringQouteMark(studio.getStudioName())
 
     query = "INSERT INTO Studio (ID, Name) VALUES ({studio_id}, {studio_name});"
-    query = query.format(studio_id=studio_id,
-                             studio_name=studio_name)
+    query = query.format(studio_id=studio_id, studio_name=studio_name)
     return execute_query_insert(query)
 
 
@@ -329,103 +272,32 @@ def deleteStudio(studio_id: int) -> ReturnValue:
     return execute_query_delete(query)
 
 
-
 def getStudioProfile(studio_id: int) -> Studio:
-    conn = None
-
     result = Studio.badStudio()
-    rows_count = 0
-
-    try:
-        conn = Connector.DBConnector()
-        rows = Connector.ResultSet()
-        query = "select * FROM Studio Where (ID = {studio_id});"
-        query = query.format(studio_id=studio_id)
-        rows_count, rows = conn.execute(query)
-
-    except Exception as e:
-        if DEBUG:
-            print(e)
-    finally:
-        if rows_count == 1:
-            row = rows[0]
-            res_studio_id = row["id"]
-            res_studio_name = row["name"]
-            result = Studio(res_studio_id, res_studio_name)
-        if conn is not None:
-            conn.close()
+    query = "SELECT * FROM Studio WHERE (ID = {studio_id});"
+    query = query.format(studio_id=studio_id)
+    _, rows_count, rows = execute_query_Select(query)
+    if rows_count == 1:
+        row = rows[0]
+        res_studio_id = row["id"]
+        res_studio_name = row["name"]
+        result = Studio(res_studio_id, res_studio_name)
     return result
 
 
 def criticRatedMovie(movieName: str, movieYear: int, criticID: int, rating: int) -> ReturnValue:
-    conn = None
-
-    result = ReturnValue.OK
-    if getCriticProfile(criticID) == Critic.badCritic():
-        result = ReturnValue.NOT_EXISTS
-        return result
-    if getMovieProfile(movieName, movieYear).is_bad():
-        result = ReturnValue.NOT_EXISTS
-        return result
     string_movie_name = stringQouteMark(movieName)
-
-    try:
-        conn = Connector.DBConnector()
-        query = "INSERT INTO Ratings (MovieName, MovieYear, CriticID, rating) VALUES \
+    query = "INSERT INTO Ratings (MovieName, MovieYear, CriticID, rating) VALUES \
                                     ({movieName}, {movieYear}, {criticID}, {rating});"
-        query = query.format(movieName=string_movie_name,
-                             movieYear=movieYear,
-                             criticID=criticID,
-                             rating=rating)
-        conn.execute(query)
-        conn.commit()
-        # todo: figure out order of except
-    except DatabaseException.CHECK_VIOLATION as e:
-        result = ReturnValue.BAD_PARAMS
-        if DEBUG:
-            print(e)
-    except DatabaseException.UNIQUE_VIOLATION as e:
-        result = ReturnValue.ALREADY_EXISTS
-        if DEBUG:
-            print(e)
-    except Exception as e:
-        result = ReturnValue.ERROR
-        if DEBUG:
-            print(e)
-    finally:
-        if result is not ReturnValue.OK:
-            conn.rollback()
-        conn.close()
-
-    return result
+    query = query.format(movieName=string_movie_name, movieYear=movieYear, criticID=criticID, rating=rating)
+    return execute_query_insert(query)
 
 
 def criticDidntRateMovie(movieName: str, movieYear: int, criticID: int) -> ReturnValue:
-    conn = None
-
-    result = ReturnValue.OK
-
-    movieName = stringQouteMark(movieName)
-    try:
-        conn = Connector.DBConnector()
-        query = "DELETE FROM Ratings Where (MovieName = {movieName} AND MovieYear = {movieYear} AND CriticID = {criticID});"
-        query = query.format(movieName=movieName,
-                             movieYear=movieYear,
-                             criticID=criticID)
-        rows_count, _ = conn.execute(query)
-        conn.commit()
-    except Exception as e:
-        result = ReturnValue.ERROR
-        if DEBUG:
-            print(e)
-        conn.rollback()
-    finally:
-        if rows_count == 0:
-            result = ReturnValue.NOT_EXISTS
-        if result is not ReturnValue.OK:
-            conn.rollback()
-        conn.close()
-    return result
+    string_movie_name = stringQouteMark(movieName)
+    query = "DELETE FROM Ratings Where (MovieName = {movieName} AND MovieYear = {movieYear} AND CriticID = {criticID});"
+    query = query.format(movieName=string_movie_name, movieYear=movieYear, criticID=criticID)
+    return execute_query_delete(query)
 
 
 def actorPlayedInMovie(movieName: str, movieYear: int, actorID: int, salary: int, roles: List[str]) -> ReturnValue:
@@ -442,26 +314,14 @@ def studioProducedMovie(studioID: int, movieName: str, movieYear: int, budget: i
     string_movie_name = stringQouteMark(movieName)
     query = "INSERT INTO Productions (studioID, MovieName, MovieYear, budget, revenue) VALUES \
                                     ({studioID}, {movieName}, {movieYear}, {budget}, {revenue});"
-    query = query.format(studioID=studioID,
-                             movieName=string_movie_name,
-                             movieYear=movieYear,
-                             budget=budget,
-                             revenue=revenue)
-    result = execute_query_insert(query)
-    # if result is not ReturnValue.OK:
-    #     conn.rollback()
-    # conn.commit()
-    # conn.close()
-
-    return result
+    query = query.format(studioID=studioID, movieName=string_movie_name, movieYear=movieYear, budget=budget, revenue=revenue)
+    return execute_query_insert(query)
 
 
 def studioDidntProduceMovie(studioID: int, movieName: str, movieYear: int) -> ReturnValue:
     string_movie_name = stringQouteMark(movieName)
     query = "DELETE FROM Ratings Where (studioID = {studioID} AND movieName = {movieName} AND movieYear = {movieYear});"
-    query = query.format(studioID=studioID,
-                         movieName=string_movie_name,
-                         movieYear=movieYear)
+    query = query.format(studioID=studioID, movieName=string_movie_name, movieYear=movieYear)
     return execute_query_delete(query)
 
 
@@ -474,8 +334,7 @@ def averageRating(movieName: str, movieYear: int) -> float:
     try:
         conn = Connector.DBConnector()
         query = "SELECT AVG(rating) FROM Ratings WHERE MovieName = {movieName} AND MovieYear = {movieYear};"
-        query = query.format(movieName=stringQouteMark(movieName),
-                             movieYear=movieYear)
+        query = query.format(movieName=stringQouteMark(movieName), movieYear=movieYear)
         rows_count, rows = conn.execute(query)
         row = rows[0]['avg']
         result = float(row)
@@ -633,6 +492,7 @@ def execute_query_insert(query: Union[str, sql.Composed]) -> ReturnValue:
             print(e)
         return ReturnValue.ERROR
 
+
 def execute_query_delete(query: Union[str, sql.Composed]) -> ReturnValue:
     conn = Connector.DBConnector()
     try:
@@ -665,4 +525,14 @@ def execute_query_delete(query: Union[str, sql.Composed]) -> ReturnValue:
             print(e)
         return ReturnValue.ERROR
 
+
+def execute_query_Select(query: Union[str, sql.Composed]) -> Tuple(ReturnValue, int, Connector.ResultSet):
+    conn = Connector.DBConnector()
+    try:
+        rows_count, data = conn.execute(query)
+        return (ReturnValue.OK, rows_count, data)
+    except Exception as e:
+        if DEBUG:
+            print(e)
+        return (ReturnValue.ERROR, 0, 0)
 # GOOD LUCK!
