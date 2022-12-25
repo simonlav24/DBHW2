@@ -95,6 +95,25 @@ def createTables():
                         UNIQUE (MovieName, MovieYear)
                         );
                         """
+        create_total_salaries_view = """
+                        Create VIEW TotalSalaries AS
+                        SELECT name AS MovieName, year AS MovieYear, Coalesce(Sum, 0) as total_salary FROM
+		                (SELECT * FROM Movie) AS MovieSum
+	                    LEFT OUTER JOIN 
+		                (SELECT MovieName, MovieYear, SUM(Salary) FROM CASTS GROUP BY MovieName, MovieYear) AS SalarySum
+		                ON MovieSum.Name = SalarySum.MovieName AND MovieSum.Year = SalarySum.MovieYear;
+                        """
+        create_total_roles_actor_in_movie_view = """
+                                                 Create VIEW TotalActorRoles AS
+                                                 SELECT moviename, movieYear, actorid, count(roles) AS TOTAL_ACTOR_ROLES FROM roles
+                                                 GROUP BY moviename, movieYear, actorid;
+                                                 """
+        create_actor_casts_view = """
+                                  CREATE VIEW ACTORS_CASTS AS
+			                      SELECT ID, age As AAge, movieName as CMovieName, movieYear As CMovieYear FROM
+                                  (actor INNER JOIN casts
+			                      ON actor.id = casts.ActorID );
+                                  """
 
         # more...
 
@@ -109,6 +128,11 @@ def createTables():
         conn.execute(create_Cast_table)
         conn.execute(create_Roles_table)
         conn.execute(create_Production_table)
+
+        # views
+        conn.execute(create_total_salaries_view)
+        conn.execute(create_total_roles_actor_in_movie_view)
+        conn.execute(create_actor_casts_view)
 
         conn.commit()
     except Exception as e:
@@ -147,6 +171,9 @@ def dropTables():
             "DROP TABLE IF EXISTS Casts CASCADE;"
             "DROP TABLE IF EXISTS Productions CASCADE;"
             "DROP TABLE IF EXISTS Roles CASCADE;"
+            "DROP VIEW IF EXISTS TotalSalaries CASCADE;"
+            "DROP VIEW IF EXISTS TotalActorRoles CASCADE;"
+            "DROP VIEW IF EXISTS ACTORS_CASTS;"
         )
         conn.commit()
     except Exception as e:
@@ -368,7 +395,7 @@ def averageRating(movieName: str, movieYear: int) -> float:
             movieName), movieYear=movieYear)
         rows_count, rows = conn.execute(query)
         row = rows[0]['avg']
-        result = float(row)
+        result = float(row) if row else None
         if result is None:
             result = 0.0
     except DatabaseException.ConnectionInvalid as e:
@@ -380,10 +407,13 @@ def averageRating(movieName: str, movieYear: int) -> float:
 
     return result
 
+
 """  the average of average ratings of movies in which the actor played,
          or 0 if the actor did not play in any movie.
          if any movie has no ratings, it is counted as having average rating of 0.
          In case the actor does not exist, or have not played in any movies with ratings, return 0. """
+
+
 def averageActorRating(actorID: int) -> float:
     result = 0.0
     query = """
@@ -411,12 +441,14 @@ earlier release, and for movies released in the same year choosing the movie wit
 name (lexicographically)
 In case the actor doesn’t exist or did not play in any movies, return badMovie()
 """
+
+
 def bestPerformance(actor_id: int) -> Movie:
-	
+
     result = Movie.badMovie()
     query = """
             SELECT movie.name, movie.year, movie.genre, Castings.rating FROM
-	        movie RIGHT OUTER JOIN (
+	        movie INNER JOIN (
 			SELECT Casts.MovieName, Casts.MovieYear, COALESCE(rating, -1) AS rating
 	        FROM Casts LEFT OUTER JOIN Ratings
             ON Casts.MovieName = Ratings.MovieName AND Casts.MovieYear = Ratings.MovieYear
@@ -440,54 +472,179 @@ def bestPerformance(actor_id: int) -> Movie:
     return result
 
 
+"""
+Input: name and year of the movie
+Output: the difference between the budget of the movie and the sum of salaries of actors
+who play in the movie. Movies that was not produced by any studio, are considered to have a
+budget of 0.
+In case the movie does not exist, return -1
+"""
+
 
 def stageCrewBudget(movieName: str, movieYear: int) -> int:
-    # string_movie_name = stringQouteMark(movieName)
-    # query = "SELECT * FROM Productions WHERE(Name={string_movie_name} AND Year={movieYear});"
-    # query = query.format(string_movie_name=string_movie_name,
-    #                      movieYear=movieYear)
-    # _, rows_count, rows = execute_query_select(query)
-    # if rows_count == 1:
-    #     row = rows[0]
-    #     res_critic_id = row["id"]
-    #     res_critic_name = row["name"]
-    #     result = Critic(res_critic_id, res_critic_name)
-    # return result
-    pass
+    string_movie_name = stringQouteMark(movieName)
+    totalCrewBudget = -1
+    query = """
+        SELECT COALESCE(budget, 0)-total_salary AS diff FROM 
+		(SELECT * FROM TotalSalaries  WHERE MovieName = {string_movie_name} AND MovieYear = {movieYear}) AS Movie_salary
+		LEFT OUTER JOIN
+		Productions P
+		ON Movie_salary.MovieName = P.MovieName AND Movie_salary.MovieYear = P.MovieYear
+    """
+    query = query.format(string_movie_name=string_movie_name,
+                         movieYear=movieYear)
+    _, rows_count, rows = execute_query_select(query)
+    if rows_count == 1:
+        totalCrewBudget = rows[0]["diff"]
+    return totalCrewBudget
+
+
+"""
+Input:  The name and year of the movie and the ID of the actor.
+Output: Returns True if the actor with actor_id plays at least half of all the roles in the movie.
+        False otherwise
+        Returns False if either the movie or actor do not exist, or if the actor does not play
+        any role in the movie
+"""
 
 
 def overlyInvestedInMovie(movie_name: str, movie_year: int, actor_id: int) -> bool:
-    # string_movie_name = stringQouteMark(movie_name)
-    # TODO: implement
-    pass
+    string_movie_name = stringQouteMark(movie_name)
+    invested = False
+    query = """
+            SELECT (cast(total_actor_roles as decimal)/cast(total_roles as decimal)) >= 0.5 AS invested FROM (
+            SELECT * FROM TotalActorRoles WHERE movieName={string_movie_name} AND movieYear={movie_year} AND actorID={actor_id}
+            ) AS TOTAL_ACTOR_ROLES_SELECT
+            INNER JOIN
+            (SELECT moviename, movieYear, count(roles) as TOTAL_ROLES FROM roles
+            GROUP BY moviename, movieYear) AS TOTAL_MOVIE_ROLES
+            ON TOTAL_ACTOR_ROLES_SELECT.movieName = TOTAL_MOVIE_ROLES.movieName AND TOTAL_ACTOR_ROLES_SELECT.movieYear = TOTAL_MOVIE_ROLES.movieYear
+            """
+    query = query.format(string_movie_name=string_movie_name,
+                         movie_year=movie_year,
+                         actor_id=actor_id)
+    _, rows_count, rows = execute_query_select(query)
+    if rows_count == 1:
+        invested = rows[0]["invested"]
+    return invested
 
 
 # ---------------------------------- ADVANCED API: ----------------------------------
+"""
+Input: None
+Output: list of (movie_name, total_revenue). Where total_revenue is the sum of all revenues
+movies with movie_name made for studios. If a movie was not produced by any studio, its
+revenue should be counted as 0.
+the movies should be ordered by name in descending order.
+"""
 
 
 def franchiseRevenue() -> List[Tuple[str, int]]:
-    # TODO: implement
-    pass
+    franchiseList = []
+    query = """
+        SELECT movie.name, SUM(COALESCE(revenue, 0)) as TOTAL_REVENUE FROM
+	    movie LEFT OUTER JOIN productions
+	    on movie.name = productions.moviename and movie.year = productions.movieyear
+	    GROUP BY movie.name
+	    ORDER BY
+	    movie.name DESC
+        """
+    _, _, rows = execute_query_select(query)
+    return rows.rows
+
+
+"""
+Input: None
+Output:
+list of (studio_id, year, total_revenue). Where total_revenue is the sum of all revenues
+movies with made for the studio with studio_id during that year.
+The tuples should be ordered by studio_id in descending order, and tuples with the same
+studios should be ordered by year in descending order.
+"""
 
 
 def studioRevenueByYear() -> List[Tuple[str, int]]:
-    # TODO: implement
-    pass
+    query = """
+        SELECT studioid, movieyear, SUM(revenue) as total_revenue_year FROM PRODUCTIONS
+        GROUP BY studioid, movieyear
+        ORDER BY
+        studioid DESC,
+        movieyear DESC
+        """
+    _, _, rows = execute_query_select(query)
+    return rows.rows
+
+
+"""
+We will define a critic to be a fan of a studio, if he rated every movie produced by the studio.
+
+Input: None
+Output: list of (critic_id, studio_id) where the critic with critic_id is a fan of studio with
+studio_id
+The list should be ordered by CriticID in descending order, and tuples with the same critic
+should be ordered by StudioID in descending order.
+"""
 
 
 def getFanCritics() -> List[Tuple[int, int]]:
-    # TODO: implement
-    pass
+
+    query = """
+            SELECT RATINGS_FOR_STUDIO.criticid, MOVIES_PER_STUDIO.studioid FROM(
+            SELECT criticid, count(studioid) AS Rated, studioid FROM ratings R RIGHT OUTER JOIN Productions P
+	        ON R.moviename = P.movieName AND R.movieYear = P.movieYear
+	        GROUP BY criticid, studioid) AS RATINGS_FOR_STUDIO
+	        RIGHT OUTER JOIN (
+	        SELECT count(studioid) AS Produced, studioid FROM PRODUCTIONS
+	        GROUP BY studioid
+	        ) AS MOVIES_PER_STUDIO
+	        on RATINGS_FOR_STUDIO.studioid = MOVIES_PER_STUDIO.studioid AND RATINGS_FOR_STUDIO.Rated = MOVIES_PER_STUDIO.Produced
+	        WHERE RATINGS_FOR_STUDIO.criticid IS NOT NULL
+			ORDER BY
+			RATINGS_FOR_STUDIO.criticid DESC,
+			MOVIES_PER_STUDIO.studioid DESC;
+            """
+    _, _, rows = execute_query_select(query)
+    return rows.rows
+
+
+"""
+Input: None
+Output: list of (genre, average_age) where average_age is the average age of actors who play
+in at least one movie of the genre.
+NOTE: an actor might play in multiple movies from the same genre, they still should only be
+counted once.
+"""
 
 
 def averageAgeByGenre() -> List[Tuple[str, float]]:
-    # TODO: implement
-    pass
+    query = """
+            SELECT genre, avg(aage) FROM
+            ACTORS_CASTS INNER JOIN movie
+            ON ACTORS_CASTS.CmovieName = movie.Name AND ACTORS_CASTS.CmovieYear = movie.year
+            GROUP BY genre
+            ORDER BY genre ASC;
+            """
+    _, _, rows = execute_query_select(query)
+    return rows.rows
 
-
+"""
+Input: None
+Output: a list of (actor_id, studio_id) where the actor with actor_id played only in movies
+Produced by studio with Studio_id.
+The list should be ordered by actor_id in descending order.
+"""
 def getExclusiveActors() -> List[Tuple[int, int]]:
-    # TODO: implement
-    pass
+    query = """
+            SELECT id, studioid
+            FROM ACTORS_CASTS INNER JOIN Productions
+            on cmoviename = productions.moviename and cmovieyear = productions.movieyear
+            GROUP BY id, studioid
+            HAVING COUNT(DISTINCT studioID) = 1
+            ORDER BY
+            id DESC;
+            """
+    _, _, rows = execute_query_select(query)
+    return rows.rows
 
 
 def stringQouteMark(string: str) -> str:
@@ -503,29 +660,6 @@ def validateInteger(integer: int):
 
     return integer
 
-
-# class DatabaseConnection(Connector.DBConnector):
-
-#     def __enter__(self):
-#         return self
-
-#     def __exit__(self, exc_type, exc_val, exc_tb):
-#         Connector.DBConnector().close()
-
-# connection = Connector.DBConnector()
-
-
-# def createConnection() -> Connector.DBConnector:
-#     conn = None
-#     try:
-#         conn = Connector.DBConnector()
-#     except DatabaseException.ConnectionInvalid as e:
-#         if DEBUG:
-#             print(e)
-#     except Exception as e:
-#         if DEBUG:
-#             print(e)
-#     return conn
 
 def execute_query_insert(query: Union[str, sql.Composed]) -> ReturnValue:
     conn = Connector.DBConnector()
