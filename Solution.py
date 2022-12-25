@@ -11,7 +11,7 @@ from Business.Critic import Critic
 from Business.Actor import Actor
 from typing import Union
 
-DEBUG = True
+DEBUG = False
 
 # ---------------------------------- CRUD API: ----------------------------------
 
@@ -109,13 +109,19 @@ def createTables():
                                                  GROUP BY moviename, movieYear, actorid;
                                                  """
         create_actor_casts_view = """
-                                  CREATE VIEW ACTORS_CASTS AS
-			                      SELECT ID, age As AAge, movieName as CMovieName, movieYear As CMovieYear FROM
-                                  (actor INNER JOIN casts
-			                      ON actor.id = casts.ActorID );
-                                  """
+                                                 CREATE VIEW ACTORS_CASTS AS
+			                                     SELECT ID, age As AAge, movieName as CMovieName, movieYear As CMovieYear FROM
+                                                 (actor INNER JOIN casts
+			                                     ON actor.id = casts.ActorID );
+                                                 """
+        create_actors_in_studios_view = """
+                                                 CREATE VIEW ACTORS_MOVIES_STUDIO AS
+                                                 SELECT actorid, studioid FROM (
+                                                 SELECT moviename, movieyear, actorID FROM casts
+                                                 ) as C
+                                                 INNER JOIN productions ON C.moviename = productions.MovieName AND C.movieyear = productions.MovieYear
+                                                 """
 
-        # more...
 
         # basic tables
         conn.execute(create_critic_table)
@@ -133,6 +139,7 @@ def createTables():
         conn.execute(create_total_salaries_view)
         conn.execute(create_total_roles_actor_in_movie_view)
         conn.execute(create_actor_casts_view)
+        conn.execute(create_actors_in_studios_view)
 
         conn.commit()
     except Exception as e:
@@ -173,7 +180,8 @@ def dropTables():
             "DROP TABLE IF EXISTS Roles CASCADE;"
             "DROP VIEW IF EXISTS TotalSalaries CASCADE;"
             "DROP VIEW IF EXISTS TotalActorRoles CASCADE;"
-            "DROP VIEW IF EXISTS ACTORS_CASTS;"
+            "DROP VIEW IF EXISTS ACTORS_CASTS CASCADE;"
+            "DROP VIEW IF EXISTS ACTORS_MOVIES_STUDIO CASCADE;"
         )
         conn.commit()
     except Exception as e:
@@ -209,10 +217,7 @@ def getCriticProfile(critic_id: int) -> Critic:
     query = query.format(critic_id=critic_id)
     _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
-        row = rows[0]
-        res_critic_id = row["id"]
-        res_critic_name = row["name"]
-        result = Critic(res_critic_id, res_critic_name)
+        result = Critic(rows[0]["id"], rows[0]["name"])
     return result
 
 
@@ -242,13 +247,8 @@ def getActorProfile(actor_id: int) -> Actor:
     query = query.format(actor_id=actor_id)
     _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
-        row = rows[0]
-        res_actor_id = row["id"]
-        res_actor_name = row["name"]
-        res_actor_age = row["age"]
-        res_actor_height = row["height"]
-        result = Actor(res_actor_id, res_actor_name,
-                       res_actor_age, res_actor_height)
+        result = Actor(rows[0]["id"], rows[0]["name"],
+                       rows[0]['age'], rows[0]['height'])
     return result
 
 
@@ -279,11 +279,7 @@ def getMovieProfile(movie_name: str, year: int) -> Movie:
     query = query.format(string_movie_name=string_movie_name, movie_year=year)
     _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
-        row = rows[0]
-        res_movie_name = row["name"]
-        res_movie_year = row["year"]
-        res_movie_genre = row["genre"]
-        result = Movie(res_movie_name, res_movie_year, res_movie_genre)
+        result = Movie(rows[0]["name"], rows[0]["year"], rows[0]["genre"])
     return result
 
 
@@ -308,10 +304,7 @@ def getStudioProfile(studio_id: int) -> Studio:
     query = query.format(studio_id=studio_id)
     _, rows_count, rows = execute_query_select(query)
     if rows_count == 1:
-        row = rows[0]
-        res_studio_id = row["id"]
-        res_studio_name = row["name"]
-        result = Studio(res_studio_id, res_studio_name)
+        result = Studio(rows[0]["id"], rows[0]["name"])
     return result
 
 
@@ -447,28 +440,32 @@ def bestPerformance(actor_id: int) -> Movie:
 
     result = Movie.badMovie()
     query = """
-            SELECT movie.name, movie.year, movie.genre, Castings.rating FROM
-	        movie INNER JOIN (
-			SELECT Casts.MovieName, Casts.MovieYear, COALESCE(rating, -1) AS rating
-	        FROM Casts LEFT OUTER JOIN Ratings
-            ON Casts.MovieName = Ratings.MovieName AND Casts.MovieYear = Ratings.MovieYear
-            WHERE actorID = {actor_id}
-		    ) AS Castings
-		    ON Castings.MovieName = movie.name AND Castings.MovieYear = movie.Year
-	        ORDER BY 
-			Castings.rating DESC,
-	        Castings.MovieYear ASC,
-	        Castings.MovieNAME DESC
-			LIMIT 1
+            SELECT     movie.name,
+                    movie.year,
+                    movie.genre,
+                    castings.rating
+            FROM       movie
+            INNER JOIN
+                    (
+                                    SELECT          casts.moviename,
+                                                    casts.movieyear,
+                                                    Coalesce(rating, -1) AS rating
+                                    FROM            casts
+                                    LEFT OUTER JOIN ratings
+                                    ON              casts.moviename = ratings.moviename
+                                    AND             casts.movieyear = ratings.movieyear
+                                    WHERE           actorid = {actor_id} ) AS castings
+            ON         castings.moviename = movie.name
+            AND        castings.movieyear = movie.year
+            ORDER BY   castings.rating DESC,
+                    castings.movieyear ASC,
+                    castings.moviename DESC
+            LIMIT      1
             """
     query = query.format(actor_id=actor_id)
     ret_res, rows_count, rows = execute_query_select(query)
     if rows_count == 1 and ret_res == ReturnValue.OK:
-        row = rows[0]
-        res_movie_name = row["name"]
-        res_movie_year = row["year"]
-        res_movie_genre = row["genre"]
-        result = Movie(res_movie_name, res_movie_year, res_movie_genre)
+        result = Movie(rows[0]["name"], rows[0]["year"], rows[0]["genre"])
     return result
 
 
@@ -512,13 +509,19 @@ def overlyInvestedInMovie(movie_name: str, movie_year: int, actor_id: int) -> bo
     string_movie_name = stringQouteMark(movie_name)
     invested = False
     query = """
-            SELECT (cast(total_actor_roles as decimal)/cast(total_roles as decimal)) >= 0.5 AS invested FROM (
-            SELECT * FROM TotalActorRoles WHERE movieName={string_movie_name} AND movieYear={movie_year} AND actorID={actor_id}
-            ) AS TOTAL_ACTOR_ROLES_SELECT
-            INNER JOIN
-            (SELECT moviename, movieYear, count(roles) as TOTAL_ROLES FROM roles
-            GROUP BY moviename, movieYear) AS TOTAL_MOVIE_ROLES
-            ON TOTAL_ACTOR_ROLES_SELECT.movieName = TOTAL_MOVIE_ROLES.movieName AND TOTAL_ACTOR_ROLES_SELECT.movieYear = TOTAL_MOVIE_ROLES.movieYear
+            SELECT ( Cast(total_actor_roles AS DECIMAL) / Cast(total_roles AS DECIMAL) ) >= 0.5 AS invested
+            FROM   (SELECT *
+                    FROM   totalactorroles
+                    WHERE  moviename = {string_movie_name}
+                           AND movieyear = {movie_year}
+                           AND actorid = {actor_id}) AS TOTAL_ACTOR_ROLES_SELECT
+                   INNER JOIN (SELECT moviename,movieyear,Count(roles) AS TOTAL_ROLES
+                               FROM   roles
+                               GROUP  BY moviename,movieyear) AS TOTAL_MOVIE_ROLES
+                           ON TOTAL_ACTOR_ROLES_SELECT.moviename =
+                              TOTAL_MOVIE_ROLES.moviename
+                              AND TOTAL_ACTOR_ROLES_SELECT.movieyear =
+                                  TOTAL_MOVIE_ROLES.movieyear 
             """
     query = query.format(string_movie_name=string_movie_name,
                          movie_year=movie_year,
@@ -589,19 +592,21 @@ should be ordered by StudioID in descending order.
 def getFanCritics() -> List[Tuple[int, int]]:
 
     query = """
-            SELECT RATINGS_FOR_STUDIO.criticid, MOVIES_PER_STUDIO.studioid FROM(
-            SELECT criticid, count(studioid) AS Rated, studioid FROM ratings R RIGHT OUTER JOIN Productions P
-	        ON R.moviename = P.movieName AND R.movieYear = P.movieYear
-	        GROUP BY criticid, studioid) AS RATINGS_FOR_STUDIO
-	        RIGHT OUTER JOIN (
-	        SELECT count(studioid) AS Produced, studioid FROM PRODUCTIONS
-	        GROUP BY studioid
-	        ) AS MOVIES_PER_STUDIO
-	        on RATINGS_FOR_STUDIO.studioid = MOVIES_PER_STUDIO.studioid AND RATINGS_FOR_STUDIO.Rated = MOVIES_PER_STUDIO.Produced
-	        WHERE RATINGS_FOR_STUDIO.criticid IS NOT NULL
-			ORDER BY
-			RATINGS_FOR_STUDIO.criticid DESC,
-			MOVIES_PER_STUDIO.studioid DESC;
+            SELECT RATINGS_FOR_STUDIO.criticid,MOVIES_PER_STUDIO.studioid
+            FROM   (SELECT criticid,Count(studioid) AS Rated,studioid
+                    FROM   ratings R
+                           RIGHT OUTER JOIN productions P
+                                         ON R.moviename = P.moviename
+                                            AND R.movieyear = P.movieyear
+                    GROUP  BY criticid,studioid) AS RATINGS_FOR_STUDIO
+                   RIGHT OUTER JOIN (SELECT Count(studioid) AS Produced,studioid
+                                     FROM   productions
+                                     GROUP  BY studioid) AS MOVIES_PER_STUDIO
+                                 ON RATINGS_FOR_STUDIO.studioid = MOVIES_PER_STUDIO.studioid
+                                    AND RATINGS_FOR_STUDIO.rated =
+                                        MOVIES_PER_STUDIO.produced
+            WHERE  RATINGS_FOR_STUDIO.criticid IS NOT NULL
+            ORDER  BY RATINGS_FOR_STUDIO.criticid DESC,MOVIES_PER_STUDIO.studioid DESC; 
             """
     _, _, rows = execute_query_select(query)
     return rows.rows
@@ -627,21 +632,26 @@ def averageAgeByGenre() -> List[Tuple[str, float]]:
     _, _, rows = execute_query_select(query)
     return rows.rows
 
+
 """
 Input: None
 Output: a list of (actor_id, studio_id) where the actor with actor_id played only in movies
 Produced by studio with Studio_id.
 The list should be ordered by actor_id in descending order.
 """
+
+
 def getExclusiveActors() -> List[Tuple[int, int]]:
     query = """
-            SELECT id, studioid
-            FROM ACTORS_CASTS INNER JOIN Productions
-            on cmoviename = productions.moviename and cmovieyear = productions.movieyear
-            GROUP BY id, studioid
-            HAVING COUNT(DISTINCT studioID) = 1
-            ORDER BY
-            id DESC;
+            SELECT * FROM ACTORS_MOVIES_STUDIO
+	        WHERE actorid NOT IN(
+		        SELECT actorid FROM (
+			        SELECT actorid FROM ACTORS_MOVIES_STUDIO
+                    GROUP BY actorid
+                    HAVING (count(studioid) > 1)
+	        	) AS ACTORS_MOVIES_STUDIO_MORE_THAN_ONE
+            )
+		    ORDER BY actorid DESC
             """
     _, _, rows = execute_query_select(query)
     return rows.rows
@@ -665,73 +675,84 @@ def execute_query_insert(query: Union[str, sql.Composed]) -> ReturnValue:
     conn = Connector.DBConnector()
     try:
         conn.execute(query)
-        return ReturnValue.OK
+        result = ReturnValue.OK
     except DatabaseException.NOT_NULL_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.BAD_PARAMS
+        result = ReturnValue.BAD_PARAMS
     except DatabaseException.CHECK_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.BAD_PARAMS
+        result = ReturnValue.BAD_PARAMS
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.NOT_EXISTS
+        result = ReturnValue.NOT_EXISTS
     except DatabaseException.UNIQUE_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.ALREADY_EXISTS
+        result = ReturnValue.ALREADY_EXISTS
     except DatabaseException.UNKNOWN_ERROR as e:
         if DEBUG:
             print(e)
-        return ReturnValue.ERROR
+        result = ReturnValue.ERROR
     except Exception as e:
         if DEBUG:
             print(e)
-        return ReturnValue.ERROR
+        result = ReturnValue.ERROR
+    finally:
+        conn.close()
+        return result
 
 
 def execute_query_delete(query: Union[str, sql.Composed]) -> ReturnValue:
     conn = Connector.DBConnector()
     try:
         rows_count, _ = conn.execute(query)
+        conn.close()
         if rows_count == 0:
-            return ReturnValue.NOT_EXISTS
-        return ReturnValue.OK
+            result = ReturnValue.NOT_EXISTS
+        else:
+            result = ReturnValue.OK
     except DatabaseException.NOT_NULL_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.BAD_PARAMS
+        result = ReturnValue.BAD_PARAMS
     except DatabaseException.CHECK_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.BAD_PARAMS
+        result = ReturnValue.BAD_PARAMS
     except DatabaseException.FOREIGN_KEY_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.NOT_EXISTS
+        result = ReturnValue.NOT_EXISTS
     except DatabaseException.UNIQUE_VIOLATION as e:
         if DEBUG:
             print(e)
-        return ReturnValue.ALREADY_EXISTS
+        result = ReturnValue.ALREADY_EXISTS
     except DatabaseException.UNKNOWN_ERROR as e:
         if DEBUG:
             print(e)
-        return ReturnValue.ERROR
+        result = ReturnValue.ERROR
     except Exception as e:
         if DEBUG:
             print(e)
-        return ReturnValue.ERROR
+        result = ReturnValue.ERROR
+    finally:
+        conn.close()
+        return result
 
 
 def execute_query_select(query: Union[str, sql.Composed]) -> Tuple[ReturnValue, int, Connector.ResultSet]:
     conn = Connector.DBConnector()
     try:
         rows_count, data = conn.execute(query)
-        return (ReturnValue.OK, rows_count, data)
+        result = (ReturnValue.OK, rows_count, data)
     except Exception as e:
         if DEBUG:
             print(e)
-        return (ReturnValue.ERROR, 0, 0)
+        result = (ReturnValue.ERROR, 0, 0)
+    finally:
+        conn.close()
+        return result
 # GOOD LUCK!
